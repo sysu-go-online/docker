@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	fmt.Println("")
+	fmt.Println("123")
 	ch := make(chan []byte, 16)
 
 	go func() {
