@@ -7,12 +7,12 @@ import (
 	"os/exec"
 )
 
-func main() {
-	fmt.Println("123456")
+func main1() {
+	fmt.Println("hello?")
 	ch := make(chan []byte, 16)
 
 	go func() {
-		cmd := exec.Command("docker", "run", "--rm", "-i", "helloworld")
+		cmd := exec.Command("docker", "run", "--rm", "-i", "ubuntu", "ls", "-l")
 		cmd.Stdin = bufio.NewReader(os.Stdin)
 		stdout, _ := cmd.StdoutPipe()
 		cmd.Start()
