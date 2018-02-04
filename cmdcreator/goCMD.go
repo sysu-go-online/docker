@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// GOROOTENV .
+// GOENV .
 const (
 	usersHome = "/home/huziang/Desktop/home"
 	goRootEnv = "/usr/lib/go-1.8:/usr/local/go"
