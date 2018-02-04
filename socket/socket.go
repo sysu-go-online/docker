@@ -1,42 +1,65 @@
 package socket
 
 import (
-	"bufio"
 	"io"
-	"net"
-	"strings"
+	"net/http"
 
 	"github.com/bilibiliChangKai/First-Docker/cmdcreator"
 	"github.com/bilibiliChangKai/First-Docker/docker"
+	"github.com/gorilla/websocket"
 )
 
-// undefined
-func getCommand(line string) map[string]string {
-	return nil
-}
+const (
+	readBufferSize  = 1024
+	writeBufferSize = 1024
+)
 
-//这个是在处理客户端会阻塞的代码。
-func HandleConnection(conn net.Conn) {
-	conn.Write([]byte("Welcome connect!"))
+// HandleConnection 这个是在处理客户端会阻塞的代码。
+func HandleConnection(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Upgrade(w, r, nil, readBufferSize, writeBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
 
-	// 读取用户数据
-	r := bufio.NewReader(conn)
+	// 反json化
+	command := &cmdcreator.Command{}
+	conn.ReadJSON(*command)
+
+	conn.WriteMessage(websocket.TextMessage, []byte("Welcome connect!"))
+
+	outchan := make(chan []byte, 1024)
+	errchan := make(chan []byte, 1024)
+
+	// 运行docker命令
+	cmd := command.Goget()
+	pipeReader, _ := io.Pipe()
+	docker.RunDocker(cmd, pipeReader, outchan, errchan)
+
+	// read chan
+	outend := false
+	errend := false
 	for {
-		line, err := r.ReadString('\n') //将r的内容也就是conn的数据按照换行符进行读取。
-		if err == io.EOF {
-			conn.Close()
-		}
-		// 除去换行符
-		line = strings.TrimSpace(line)
-		// 在没有终止信号发出时，等待
-		if len(line) == 0 {
-			continue
+		if !outend {
+			ob, ok := <-outchan
+			if ok == false {
+				outend = true
+			} else {
+				conn.WriteMessage(websocket.TextMessage, ob)
+			}
 		}
 
-		command := getCommand(line)
-		if command["cmd"] == "go get" {
-			cmd := cmdcreator.Goget(command["user"], command["package"])
-			docker.RunDocker(cmd)
+		if !errend {
+			ob, ok := <-errchan
+			if ok == false {
+				errend = true
+			} else {
+				conn.WriteMessage(websocket.TextMessage, ob)
+			}
+		}
+
+		if errend && outend {
+			break
 		}
 	}
 }

@@ -5,18 +5,24 @@ import (
 	"strings"
 )
 
-var GOROOT_ENV = "/usr/lib/go-1.8:/usr/local/go"
-var GOPATH_ENV = "/home/huziang/Desktop/home/{0}:/go"
+// GOROOTENV .
+const (
+	usersHome = "/home/huziang/Desktop/home"
+	goRootEnv = "/usr/lib/go-1.8:/usr/local/go"
+	goPathEnv = usersHome + "/{0}:/go"
+)
 
-func Goget(username string, packagename string) *exec.Cmd {
-	gopath := strings.Replace(GOPATH_ENV, "{0}", username, -1)
+// Goget : go get url
+func (command *Command) Goget() *exec.Cmd {
+	gopath := strings.Replace(goPathEnv, "{0}", command.UserName, -1)
 
 	return exec.Command("docker", "run", "--rm", "-i",
-		"-v", GOROOT_ENV,
+		"-v", goRootEnv,
 		"-v", gopath,
-		"golang", "go", "get", packagename)
+		"golang", "go", "get", command.Entrypoint[0])
 }
 
+// Ls : ls -l
 func Ls() *exec.Cmd {
 	return exec.Command("docker", "run", "--rm", "-i", "ubuntu", "ls", "-l")
 }

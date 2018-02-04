@@ -1,28 +1,19 @@
 package main
 
 import (
-	"log"
-	"net"
+	"github.com/codegangsta/martini"
 
 	"github.com/bilibiliChangKai/First-Docker/socket"
 )
 
-var SOCKET_ADDR string = "0.0.0.0:8080" //表示监听本地所有ip的8080端口，也可以这样写：addr := ":8080"
+// SOCKETADDR socket地址 string
+const (
+	socketaddr = ":8081" //表示监听本地所有ip的8080端口，也可以这样写：addr := ":8080"
+)
 
 func main() {
-	listener, err := net.Listen("tcp", SOCKET_ADDR)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer listener.Close()
+	m := martini.Classic()
+	m.Get("/", socket.HandleConnection)
 
-	for {
-		conn, err := listener.Accept() //用conn接收链接
-		if err != nil {
-			log.Fatal(err)
-		}
-		go socket.HandleConnection(conn) //开启多个协程。
-	}
-	// cmd := cmdcreator.Goget("huziang", "github.com/golang/example/hello")
-	// runDocker(cmd)
+	m.RunOnAddr(socketaddr)
 }
