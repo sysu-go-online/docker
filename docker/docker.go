@@ -16,6 +16,7 @@ func RunDocker(cmd *exec.Cmd, in *io.PipeReader, outchan chan []byte, errchan ch
 		panic(err)
 	}
 	defer stdout.Close()
+	reader := bufio.NewReader(stdout)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		panic(err)
@@ -30,28 +31,22 @@ func RunDocker(cmd *exec.Cmd, in *io.PipeReader, outchan chan []byte, errchan ch
 	errend := false
 	for {
 		if !outend {
-			n, err := stdout.Read(b)
-			fmt.Println("?")
-			fmt.Println("OUT:" + string(b))
+			line, err := reader.ReadString('\n')
+			fmt.Println(line)
 			if err != nil {
-				fmt.Println(err)
 				outend = true
 				close(outchan)
 			} else {
-				fmt.Println("OUT:" + string(b))
-				outchan <- b[:n]
+				outchan <- []byte(line)
 			}
 		}
 
 		if !errend {
 			n, err := stderr.Read(b)
-			fmt.Println("OUT:" + string(b))
 			if err != nil {
 				errend = true
 				close(errchan)
 			} else {
-				fmt.Println("ERR:" + string(b))
-				fmt.Println(n)
 				errchan <- b[:n]
 			}
 		}

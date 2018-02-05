@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bilibiliChangKai/First-Docker/cmdcreator"
 	"github.com/bilibiliChangKai/First-Docker/docker"
+
+	"github.com/bilibiliChangKai/First-Docker/cmdcreator"
 	"github.com/bilibiliChangKai/First-Docker/socket"
 	"github.com/codegangsta/martini"
 )
@@ -37,7 +38,6 @@ func main() {
 	for {
 		if !outend {
 			ob, ok := <-outchan
-			fmt.Println("OB:", string(ob))
 			if ok == false {
 				outend = true
 			} else {
@@ -47,7 +47,6 @@ func main() {
 
 		if !errend {
 			ob, ok := <-errchan
-			fmt.Println("OB:" + string(ob))
 			if ok == false {
 				errend = true
 			} else {
