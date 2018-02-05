@@ -8,18 +8,17 @@ import (
 // GOENV .
 const (
 	usersHome = "/home/huziang/Desktop/home"
-	goRootEnv = "/usr/lib/go-1.8:/usr/local/go"
+	// goRootEnv = "/usr/lib/go-1.8:/usr/local/go"
 	goPathEnv = usersHome + "/{0}:/go"
 )
 
 // Goget : go get url
 func (command *Command) Goget() *exec.Cmd {
-	gopath := strings.Replace(goPathEnv, "{0}", command.UserName, -1)
+	// gopath := strings.Replace(goPathEnv, "{0}", command.UserName, -1)
 
-	return exec.Command("docker", "run", "--rm", "-i",
-		"-v", goRootEnv,
-		"-v", gopath,
-		"golang", "go", "get", command.Entrypoint[0])
+	strs := strings.Split(command.Command, " ")
+	strs = append([]string{"run", "--rm", "-i", "golang"}, strs...)
+	return exec.Command("docker", strs...)
 }
 
 // Ls : ls -l

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os/exec"
 )
@@ -20,7 +21,6 @@ func RunDocker(cmd *exec.Cmd, in *io.PipeReader, outchan chan []byte, errchan ch
 		panic(err)
 	}
 	defer stderr.Close()
-
 	// docker 启动
 	cmd.Start()
 
@@ -31,20 +31,27 @@ func RunDocker(cmd *exec.Cmd, in *io.PipeReader, outchan chan []byte, errchan ch
 	for {
 		if !outend {
 			n, err := stdout.Read(b)
+			fmt.Println("?")
+			fmt.Println("OUT:" + string(b))
 			if err != nil {
+				fmt.Println(err)
 				outend = true
 				close(outchan)
 			} else {
+				fmt.Println("OUT:" + string(b))
 				outchan <- b[:n]
 			}
 		}
 
 		if !errend {
 			n, err := stderr.Read(b)
+			fmt.Println("OUT:" + string(b))
 			if err != nil {
 				errend = true
 				close(errchan)
 			} else {
+				fmt.Println("ERR:" + string(b))
+				fmt.Println(n)
 				errchan <- b[:n]
 			}
 		}
