@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
@@ -16,6 +17,7 @@ const (
 
 // HandleConnection 这个是在处理客户端会阻塞的代码。
 func HandleConnection(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("in?????")
 	conn, err := websocket.Upgrade(w, r, nil, readBufferSize, writeBufferSize)
 	if err != nil {
 		panic(err)
@@ -24,7 +26,14 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	// 反json化
 	command := &cmdcreator.Command{}
-	conn.ReadJSON(*command)
+	
+	// _, bs, err := conn.ReadMessage()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(bs))
+	conn.ReadJSON(command)
+	fmt.Println(command)
 
 	conn.WriteMessage(websocket.TextMessage, []byte("Welcome connect!"))
 
