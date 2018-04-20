@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bilibiliChangKai/First-Docker/cmdcreator"
-	"github.com/bilibiliChangKai/First-Docker/docker"
 	"github.com/gorilla/websocket"
+	"github.com/sysu-go-online/docker/cmdcreator"
+	"github.com/sysu-go-online/docker/docker"
 )
 
 const (
