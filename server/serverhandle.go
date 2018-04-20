@@ -6,7 +6,6 @@ package server
 //********************************************
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -25,7 +24,6 @@ const (
 // HandleConnection 这个是在处理客户端会阻塞的代码。
 func HandleConnection(formatter *render.Render) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("in?????")
 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
 		if err != nil {
 			panic(err)
@@ -35,7 +33,6 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		// 反json化
 		command := &cmdcreator.Command{}
 		conn.ReadJSON(command)
-		fmt.Println(command)
 
 		// 获得docker命令
 		cmd := command.Goget()
