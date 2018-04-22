@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM docker
 ADD main /
 
 ENTRYPOINT ["/main"]
