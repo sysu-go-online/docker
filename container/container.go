@@ -52,6 +52,10 @@ func (con *Container) Init() {
 	if err != nil {
 		panic(err)
 	}
+	stdin, err := con.cmd.StdinPipe()
+	if err != nil {
+		panic(err)
+	}
 
 	// docker 启动
 	con.cmd.Start()
@@ -72,7 +76,28 @@ func (con *Container) Init() {
 		}
 	}
 
+	readFromConnection := func(in io.WriteCloser) {
+		defer in.Close()
+
+		// Read message from client and write to process
+		for {
+			_, msg, err := con.conn.ReadMessage()
+			// If client close connection, kill the process
+			if err != nil {
+				con.cmd.Process.Kill()
+				break
+			}
+			_, err = in.Write(msg)
+			// If message can not be written to the process, kill it
+			if err != nil {
+				con.cmd.Process.Kill()
+				break
+			}
+		}
+	}
+
 	// asyn write two channel
+	go readFromConnection(stdin)
 	go asynWriteChannel(stdout)
 	go asynWriteChannel(stderr)
 }
