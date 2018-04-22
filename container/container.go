@@ -12,6 +12,8 @@ import (
 	"os/exec"
 
 	"github.com/gorilla/websocket"
+
+	. "github.com/sysu-go-online/docker_end/util"
 )
 
 const (
@@ -42,26 +44,31 @@ func NewContainer(conn *websocket.Conn, cmd *exec.Cmd) *Container {
 
 // Init 协程初始化，并开始运行
 func (con *Container) Init() {
+	defer func() {
+		if err := recover(); err != nil {
+			con.conn.WriteMessage(websocket.TextMessage, []byte("Error!"))
+
+			// 发送两个信号，使Join完成
+			con.isEnd.Signal()
+			con.isEnd.Signal()
+		}
+	}()
+
 	// docker stdin, stdout, stderr设置
-	//con.cmd.Stdin = bufio.NewReader(in)
 	stdout, err := con.cmd.StdoutPipe()
-	if err != nil {
-		panic(err)
-	}
+	DealPanic(err)
+
 	stderr, err := con.cmd.StderrPipe()
-	if err != nil {
-		panic(err)
-	}
+	DealPanic(err)
+
 	stdin, err := con.cmd.StdinPipe()
-	if err != nil {
-		panic(err)
-	}
+	DealPanic(err)
 
 	// docker 启动
 	con.cmd.Start()
 
 	// 异步读取信息，并发送给connection
-	asynWriteChannel := func(out io.ReadCloser) {
+	writeToConnection := func(out io.ReadCloser) {
 		defer out.Close()
 		reader := bufio.NewReader(out)
 		for {
@@ -76,6 +83,7 @@ func (con *Container) Init() {
 		}
 	}
 
+	// 异步读取信息，并发送给cmd
 	readFromConnection := func(in io.WriteCloser) {
 		defer in.Close()
 
@@ -96,10 +104,10 @@ func (con *Container) Init() {
 		}
 	}
 
-	// asyn write two channel
+	// asyn write and read
 	go readFromConnection(stdin)
-	go asynWriteChannel(stdout)
-	go asynWriteChannel(stderr)
+	go writeToConnection(stdout)
+	go writeToConnection(stderr)
 }
 
 // Join 当两个协程全部运行完毕时，程序结束

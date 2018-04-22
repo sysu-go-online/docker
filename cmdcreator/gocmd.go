@@ -6,27 +6,45 @@ package cmdcreator
 //********************************************
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+
+	. "github.com/sysu-go-online/docker_end/util"
 )
 
 // GOENV .
 const (
 	usersHome = "/home/huziang/Desktop/home"
-	// goRootEnv = "/usr/lib/go-1.8:/usr/local/go"
-	goPathEnv = usersHome + "/{0}:/go"
 )
 
-// Goget : go get url
-func (command *Command) Goget() *exec.Cmd {
-	// gopath := strings.Replace(goPathEnv, "{0}", command.UserName, -1)
+// Goget : go comannd
+func (command *Command) Gocmds() *exec.Cmd {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}()
 
-	strs := strings.Split(command.Command, " ")
-	strs = append([]string{"run", "--rm", "-i", "golang"}, strs...)
+	// test username and project name
+	_, err := os.Stat(usersHome + "/" + command.UserName + "/" + command.ProjectName)
+	DealPanic(err)
+
+	// set mount point
+	mountpoint := usersHome + "/" + command.UserName + "/" + command.ProjectName +
+		":" + "/go/src/" + command.ProjectName
+
+	// set envirment
+	envirment := []string{}
+	for i := 0; i < len(command.ENV); i += 2 {
+		envirment[i/2] = command.ENV[i] + "=" + command.ENV[i+1]
+	}
+
+	// set all paramete
+	strs := append([]string{"run", "--rm", "-i"}, []string{"-v", mountpoint}...)
+	strs = append(strs, envirment...)
+	strs = append(strs, "golang")
+	strs = append(strs, strings.Split(command.Command, " ")...)
 	return exec.Command("docker", strs...)
-}
-
-// Ls : ls -l
-func Ls() *exec.Cmd {
-	return exec.Command("docker", "run", "--rm", "-i", "ubuntu", "ls", "-l")
 }
