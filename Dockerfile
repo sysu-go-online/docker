@@ -1,4 +1,4 @@
-FROM scratch
+FROM docker
 ADD main /
 
 ENTRYPOINT ["/main"]
