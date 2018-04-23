@@ -33,7 +33,7 @@ func (command *Command) Gocmds() *exec.Cmd {
 
 	// set mount point
 	mountpoint := usersHome + "/" + command.UserName + "/" + command.ProjectName +
-		":" + "/go/src/" + command.ProjectName
+		":/home/" + command.UserName + "/src/" + command.ProjectName
 
 	// set envirment
 	envirment := []string{}
