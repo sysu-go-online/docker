@@ -19,7 +19,7 @@ const (
 	usersHome = "/home/huziang/Desktop/home"
 )
 
-// Goget : go comannd
+// Gocmds : go comannd
 func (command *Command) Gocmds() *exec.Cmd {
 	defer func() {
 		if err := recover(); err != nil {
@@ -28,7 +28,7 @@ func (command *Command) Gocmds() *exec.Cmd {
 	}()
 
 	// test username and project name
-	_, err := os.Stat(usersHome + "/" + command.UserName + "/" + command.ProjectName)
+	_, err := os.Stat(usersHome + "/" + command.UserName + "/src/" + command.ProjectName + "/" + command.PWD)
 	DealPanic(err)
 
 	// set mount point
@@ -38,13 +38,15 @@ func (command *Command) Gocmds() *exec.Cmd {
 	// set envirment
 	envirment := []string{}
 	for i := 0; i < len(command.ENV); i += 2 {
-		envirment[i/2] = command.ENV[i] + "=" + command.ENV[i+1]
+		envirment = append(envirment, command.ENV[i]+"="+command.ENV[i+1])
 	}
 
 	// set all paramete
 	strs := append([]string{"run", "--rm", "-i"}, []string{"-v", mountpoint}...)
+	strs = append(strs, "--env")
 	strs = append(strs, envirment...)
 	strs = append(strs, "golang")
 	strs = append(strs, strings.Split(command.Command, " ")...)
+	fmt.Println(strs)
 	return exec.Command("docker", strs...)
 }

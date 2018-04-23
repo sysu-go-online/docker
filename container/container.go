@@ -8,6 +8,7 @@ package container
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os/exec"
 
@@ -25,10 +26,9 @@ var idset int
 
 // Container 通过接口封装输入输出给
 type Container struct {
-	ID    int             // 主键
-	conn  *websocket.Conn // 绑定的websocket，其中一端
-	cmd   *exec.Cmd       // 绑定的cmd执行指令，另外一段
-	isEnd *Signal         // 判断是否结束
+	ID   int             // 主键
+	conn *websocket.Conn // 绑定的websocket，其中一端
+	cmd  *exec.Cmd       // 绑定的cmd执行指令，另外一段
 }
 
 // NewContainer 新创建一个容器指针
@@ -38,7 +38,6 @@ func NewContainer(conn *websocket.Conn, cmd *exec.Cmd) *Container {
 	idset++
 	container.conn = conn
 	container.cmd = cmd
-	container.isEnd = NewSignal(2)
 	return container
 }
 
@@ -47,21 +46,17 @@ func (con *Container) Init() {
 	defer func() {
 		if err := recover(); err != nil {
 			con.conn.WriteMessage(websocket.TextMessage, []byte("Error!"))
-
-			// 发送两个信号，使Join完成
-			con.isEnd.Signal()
-			con.isEnd.Signal()
 		}
 	}()
 
 	// docker stdin, stdout, stderr设置
+	stdin, err := con.cmd.StdinPipe()
+	DealPanic(err)
+
 	stdout, err := con.cmd.StdoutPipe()
 	DealPanic(err)
 
 	stderr, err := con.cmd.StderrPipe()
-	DealPanic(err)
-
-	stdin, err := con.cmd.StdinPipe()
 	DealPanic(err)
 
 	// docker 启动
@@ -73,9 +68,9 @@ func (con *Container) Init() {
 		reader := bufio.NewReader(out)
 		for {
 			line, _, err := reader.ReadLine()
+			fmt.Println("Message send: " + string(line))
 			// 传输结束，发出信号
 			if err != nil {
-				con.isEnd.Signal()
 				break
 			} else {
 				con.conn.WriteMessage(websocket.TextMessage, line)
@@ -95,6 +90,8 @@ func (con *Container) Init() {
 				con.cmd.Process.Kill()
 				break
 			}
+			fmt.Println("Message get: " + string(msg))
+			msg = append(msg, byte('\n'))
 			_, err = in.Write(msg)
 			// If message can not be written to the process, kill it
 			if err != nil {
@@ -112,5 +109,5 @@ func (con *Container) Init() {
 
 // Join 当两个协程全部运行完毕时，程序结束
 func (con *Container) Join() {
-	con.isEnd.Wait()
+	con.cmd.Wait()
 }

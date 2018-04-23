@@ -11,3 +11,8 @@ import "os/exec"
 func (command *Command) Ls() *exec.Cmd {
 	return exec.Command("docker", "run", "--rm", "-i", "ubuntu", "ls", "-l")
 }
+
+// Ls : ls -l
+func (command *Command) Test() *exec.Cmd {
+	return exec.Command("go", "run", "../cmd/main.go")
+}

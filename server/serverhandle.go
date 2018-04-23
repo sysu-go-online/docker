@@ -60,7 +60,7 @@ func TestFunciton(formatter *render.Render) http.HandlerFunc {
 		conn.ReadJSON(command)
 
 		// 获得docker命令
-		cmd := command.Ls()
+		cmd := command.Test()
 		con := container.NewContainer(conn, cmd)
 
 		// container开始运行
