@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	. "github.com/sysu-go-online/docker_end/util"
@@ -16,7 +17,7 @@ import (
 
 // GOENV .
 const (
-	usersHome = "/home/huziang/Desktop/home"
+	usersHome = "/home"
 )
 
 // Gocmds : go comannd
@@ -28,12 +29,12 @@ func (command *Command) Gocmds() *exec.Cmd {
 	}()
 
 	// test username and project name
-	_, err := os.Stat(usersHome + "/" + command.UserName + "/src/" + command.ProjectName + "/" + command.PWD)
+	_, err := os.Stat(filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD))
 	DealPanic(err)
 
 	// set mount point
-	mountpoint := usersHome + "/" + command.UserName + "/" + command.ProjectName +
-		":/home/" + command.UserName + "/src/" + command.ProjectName
+	mountpoint := filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD) +
+		":" + filepath.Join("/go", "src/github.com", command.ProjectName)
 
 	// set envirment
 	envirment := []string{}

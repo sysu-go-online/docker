@@ -22,7 +22,7 @@ func main() {
 	// Get port from env
 	var PORT = os.Getenv("PORT")
 	if len(PORT) == 0 {
-		PORT = "8998"
+		PORT = "8888"
 	}
 	var port = pflag.StringP("port", "p", PORT, "Define the port where service runs")
 	pflag.Parse()
