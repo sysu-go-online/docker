@@ -7,14 +7,14 @@ package container
 //********************************************
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"os/exec"
+
+	"github.com/docker/docker/pkg/stdcopy"
+
+	"github.com/docker/docker/client"
+	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/gorilla/websocket"
-
-	. "github.com/sysu-go-online/docker_end/util"
 )
 
 const (
@@ -23,91 +23,66 @@ const (
 )
 
 var idset int
+var DockerClient *client.Client
 
 // Container 通过接口封装输入输出给
 type Container struct {
-	ID   int             // 主键
-	conn *websocket.Conn // 绑定的websocket，其中一端
-	cmd  *exec.Cmd       // 绑定的cmd执行指令，另外一段
+	ID      string              // container ID
+	conn    *websocket.Conn     // 绑定的websocket，其中一端
+	command *cmdcreator.Command // User command and other messages
+}
+
+func init() {
+	// Get docker client with preset env
+	dockerClient, err := client.NewEnvClient()
+	if err != nil {
+		panic(err)
+	}
+	DockerClient = dockerClient
 }
 
 // NewContainer 新创建一个容器指针
-func NewContainer(conn *websocket.Conn, cmd *exec.Cmd) *Container {
-	container := new(Container)
-	container.ID = idset
-	idset++
-	container.conn = conn
-	container.cmd = cmd
-	return container
+func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container {
+	container := Container{
+		conn:    conn,
+		command: command,
+	}
+	// Create container
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig()
+	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(ret.Warnings)
+	ID := ret.ID
+	container.ID = ID
+	return &container
 }
 
-// Init 协程初始化，并开始运行
-func (con *Container) Init() {
-	defer func() {
-		if err := recover(); err != nil {
-			con.conn.WriteMessage(websocket.TextMessage, []byte("Error!"))
-		}
-	}()
-
-	// docker stdin, stdout, stderr设置
-	stdin, err := con.cmd.StdinPipe()
-	DealPanic(err)
-
-	stdout, err := con.cmd.StdoutPipe()
-	DealPanic(err)
-
-	stderr, err := con.cmd.StderrPipe()
-	DealPanic(err)
-
-	// docker 启动
-	con.cmd.Start()
-
-	// 异步读取信息，并发送给connection
-	writeToConnection := func(out io.ReadCloser) {
-		defer out.Close()
-		reader := bufio.NewReader(out)
-		for {
-			line, _, err := reader.ReadLine()
-			fmt.Println("Message send: " + string(line))
-			// 传输结束，发出信号
-			if err != nil {
-				break
-			} else {
-				con.conn.WriteMessage(websocket.TextMessage, line)
-			}
-		}
+func StartContainer(container *Container) {
+	// Attach container
+	ctx, _, _, _, attachOptions, startOptions := getConfig()
+	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
+	defer hjconn.Close()
+	if err != nil {
+		panic(err)
 	}
-
-	// 异步读取信息，并发送给cmd
-	readFromConnection := func(in io.WriteCloser) {
-		defer in.Close()
-
-		// Read message from client and write to process
-		for {
-			_, msg, err := con.conn.ReadMessage()
-			// If client close connection, kill the process
-			if err != nil {
-				con.cmd.Process.Kill()
-				break
-			}
-			fmt.Println("Message get: " + string(msg))
-			msg = append(msg, byte('\n'))
-			_, err = in.Write(msg)
-			// If message can not be written to the process, kill it
-			if err != nil {
-				con.cmd.Process.Kill()
-				break
-			}
-		}
+	// Read message from client and send it to docker
+	go readFromClient(hjconn.Conn, container.conn)
+	// Read message from docker and send it to client
+	stdout := WsWriter{
+		conn: container.conn,
 	}
-
-	// asyn write and read
-	go readFromConnection(stdin)
-	go writeToConnection(stdout)
-	go writeToConnection(stderr)
-}
-
-// Join 当两个协程全部运行完毕时，程序结束
-func (con *Container) Join() {
-	con.cmd.Wait()
+	stderr := WsWriter{
+		conn: container.conn,
+	}
+	_, err = stdcopy.StdCopy(stdout, stderr, hjconn.Reader)
+	if err != nil {
+		panic(err)
+	}
+	// Start container
+	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
+	if err != nil {
+		panic(err)
+	}
 }
