@@ -70,7 +70,7 @@ func StartContainer(container *Container) {
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
 	if err != nil {
-		panic(err)
+		container.conn.WriteMessage(websocket.TextMessage, []byte("Executable file not found in $PATH"))
 	}
 	<-readCtl
 }

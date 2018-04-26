@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/strslice"
 
 	"github.com/docker/docker/api/types/container"
 
@@ -55,6 +55,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 	hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig,
 	attachOptions types.ContainerAttachOptions, startOptions types.ContainerStartOptions) {
 	ctx = context.Background()
+	cmd := strings.Split(cont.Command, " ")
 	config = &container.Config{
 		User:         "root",
 		AttachStdin:  true,
@@ -62,12 +63,12 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AttachStderr: true,
 		Tty:          true,
 		OpenStdin:    true,
-		Env: cont.ENV,
-		Cmd: strslice.StrSlice{"sh", "-c", cont.Command},
+		Env:          cont.ENV,
+		Cmd:          cmd,
 		// TODO
 		Image: "golang",
 		// TODO
-		Volumes: map[string]struct{}{},
+		Volumes:    map[string]struct{}{},
 		WorkingDir: getPWD(cont.ProjectName, cont.UserName, cont.PWD),
 		// Entrypoint: []string{"sh"},
 	}
