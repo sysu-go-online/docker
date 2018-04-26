@@ -1,35 +1,30 @@
 package container
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"net"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types"
+	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/strslice"
 
 	"github.com/docker/docker/api/types/container"
-
-	"github.com/docker/docker/api/types/strslice"
 
 	"github.com/gorilla/websocket"
 )
 
 // 异步读取信息，并发送给connection
-func writeToConnection(out io.ReadCloser, conn *websocket.Conn) {
-	defer out.Close()
-	reader := bufio.NewReader(out)
+func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
 	for {
-		line, _, err := reader.ReadLine()
-		fmt.Println("Message send: " + string(line))
-		// 传输结束，发出信号
+		p, _, err := hjconn.Reader.ReadLine()
+		container.conn.WriteMessage(websocket.TextMessage, p)
 		if err != nil {
-			break
-		} else {
-			conn.WriteMessage(websocket.TextMessage, line)
+			ctl <- true
+			return
 		}
 	}
 }
@@ -43,8 +38,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn) {
 		_, msg, err := cConn.ReadMessage()
 		// If client close connection, kill the process
 		if err != nil {
-			panic(err)
-			break
+			return
 		}
 		fmt.Println("Message get: " + string(msg))
 		msg = append(msg, byte('\n'))
@@ -52,13 +46,12 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn) {
 		// If message can not be written to the process, kill it
 		if err != nil {
 			panic(err)
-			break
 		}
 	}
 }
 
 // getConfig returns all the need config with given parameters
-func getConfig() (ctx context.Context, config *container.Config,
+func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container.Config,
 	hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig,
 	attachOptions types.ContainerAttachOptions, startOptions types.ContainerStartOptions) {
 	ctx = context.Background()
@@ -69,16 +62,14 @@ func getConfig() (ctx context.Context, config *container.Config,
 		AttachStderr: true,
 		Tty:          true,
 		OpenStdin:    true,
-		// TODO
-		Env: []string{},
-		// TODO
-		Cmd: strslice.StrSlice{},
+		Env: cont.ENV,
+		Cmd: strslice.StrSlice{"sh", "-c", cont.Command},
 		// TODO
 		Image: "golang",
 		// TODO
 		Volumes: map[string]struct{}{},
-		// TODO
-		WorkingDir: "/",
+		WorkingDir: getPWD(cont.ProjectName, cont.UserName, cont.PWD),
+		// Entrypoint: []string{"sh"},
 	}
 	hostConfig = &container.HostConfig{
 		// TODO
@@ -96,4 +87,10 @@ func getConfig() (ctx context.Context, config *container.Config,
 	}
 	startOptions = types.ContainerStartOptions{}
 	return
+}
+
+func getPWD(projectname string, username string, pwd string) string {
+	goPath := "/go"
+	path := filepath.Join(goPath, "src/githb.com/", username, projectname, pwd)
+	return path
 }

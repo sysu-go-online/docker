@@ -7,10 +7,6 @@ package container
 //********************************************
 
 import (
-	"fmt"
-
-	"github.com/docker/docker/pkg/stdcopy"
-
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -48,20 +44,19 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 		command: command,
 	}
 	// Create container
-	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig()
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(container.command)
 	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(ret.Warnings)
-	ID := ret.ID
-	container.ID = ID
+	container.ID = ret.ID
 	return &container
 }
 
+// StartContainer attach and start a container
 func StartContainer(container *Container) {
 	// Attach container
-	ctx, _, _, _, attachOptions, startOptions := getConfig()
+	ctx, _, _, _, attachOptions, startOptions := getConfig(container.command)
 	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
 	defer hjconn.Close()
 	if err != nil {
@@ -70,19 +65,12 @@ func StartContainer(container *Container) {
 	// Read message from client and send it to docker
 	go readFromClient(hjconn.Conn, container.conn)
 	// Read message from docker and send it to client
-	stdout := WsWriter{
-		conn: container.conn,
-	}
-	stderr := WsWriter{
-		conn: container.conn,
-	}
-	_, err = stdcopy.StdCopy(stdout, stderr, hjconn.Reader)
-	if err != nil {
-		panic(err)
-	}
+	readCtl := make(chan bool, 1)
+	go writeToConnection(container, hjconn, readCtl)
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
 	if err != nil {
 		panic(err)
 	}
+	<-readCtl
 }
