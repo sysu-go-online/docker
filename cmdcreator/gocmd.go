@@ -11,8 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	. "github.com/sysu-go-online/docker_end/util"
+	//. "github.com/sysu-go-online/docker_end/util"
 )
 
 // GOENV .
@@ -29,12 +28,15 @@ func (command *Command) Gocmds() *exec.Cmd {
 	}()
 
 	// test username and project name
-	_, err := os.Stat(filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD))
-	DealPanic(err)
+	// _, err := os.Stat(filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD))
+	// DealPanic(err)
 
 	// set mount point
 	mountpoint := filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD) +
 		":" + filepath.Join("/go", "src/github.com", command.ProjectName)
+
+	// set work path
+	workpath := filepath.Join("/go", "src/github.com", command.ProjectName)
 
 	// set envirment
 	envirment := []string{}
@@ -46,6 +48,8 @@ func (command *Command) Gocmds() *exec.Cmd {
 	strs := append([]string{"run", "--rm", "-i"}, []string{"-v", mountpoint}...)
 	strs = append(strs, "--env")
 	strs = append(strs, envirment...)
+	strs = append(strs, "--workdir")
+	strs = append(strs, workpath)
 	strs = append(strs, "golang")
 	strs = append(strs, strings.Split(command.Command, " ")...)
 	fmt.Println(strs)
