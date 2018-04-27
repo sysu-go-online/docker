@@ -78,6 +78,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		DNS:        []string{"8.8.8.8"},
 		Mounts: []mount.Mount{
 			mount.Mount {
+				Type: mount.TypeBind,
 				Source: getHostDir(cont.ProjectName, cont.UserName),
 				Target: getPWD(cont.ProjectName, cont.UserName, "/"),
 			},
