@@ -1,6 +1,7 @@
 package container
 
 import (
+	"github.com/docker/docker/api/types/mount"
 	"context"
 	"fmt"
 	"net"
@@ -67,8 +68,6 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		Cmd:          cmd,
 		// TODO
 		Image: "golang",
-		// TODO
-		Volumes:    map[string]struct{}{},
 		WorkingDir: getPWD(cont.ProjectName, cont.UserName, cont.PWD),
 		// Entrypoint: []string{"sh"},
 	}
@@ -77,6 +76,12 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		Binds:      []string{},
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
+		Mounts: []mount.Mount{
+			mount.Mount {
+				Source: getHostDir(cont.ProjectName, cont.UserName),
+				Target: getPWD(cont.ProjectName, cont.UserName, "/"),
+			},
+		},
 	}
 	networkingConfig = &network.NetworkingConfig{}
 	attachOptions = types.ContainerAttachOptions{
@@ -92,6 +97,12 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 
 func getPWD(projectname string, username string, pwd string) string {
 	goPath := "/go"
-	path := filepath.Join(goPath, "src/githb.com/", username, projectname, pwd)
+	path := filepath.Join(goPath, "src/github.com/", username, projectname, pwd)
+	return path
+}
+
+func getHostDir(projectname string, username string) string{
+	home := "/home"
+	path := filepath.Join(home, username, "src/github.com", projectname)
 	return path
 }
