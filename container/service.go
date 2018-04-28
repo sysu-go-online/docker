@@ -97,7 +97,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 }
 
 func getPWD(projectname string, username string, pwd string) string {
-	goPath := "/go"
+	goPath := "/root/go"
 	path := filepath.Join(goPath, "src/github.com/", username, projectname, pwd)
 	return path
 }
