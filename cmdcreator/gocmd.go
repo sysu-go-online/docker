@@ -17,6 +17,7 @@ import (
 // GOENV .
 const (
 	usersHome = "/home"
+	gopath = 
 )
 
 // Gocmds : go comannd
@@ -32,8 +33,10 @@ func (command *Command) Gocmds() *exec.Cmd {
 	// DealPanic(err)
 
 	// set mount point
-	mountpoint := filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD) +
-		":" + filepath.Join("/go", "src/github.com", command.ProjectName)
+	mountpoints := []string{filepath.Join(usersHome, command.UserName, "src/github.com", command.ProjectName, command.PWD) +
+		":" + filepath.Join("/go", "src/github.com", command.ProjectName)}
+	fgopath := strings.Split(os.Getenv("GOPATH"), ":")[0]
+	mountpoints = append(mountpoints, fgopath + ":" + "/go")
 
 	// set work path
 	workpath := filepath.Join("/go", "src/github.com", command.ProjectName)
@@ -45,7 +48,9 @@ func (command *Command) Gocmds() *exec.Cmd {
 	}
 
 	// set all paramete
-	strs := append([]string{"run", "--rm", "-i"}, []string{"-v", mountpoint}...)
+	strs := []string{"run", "--rm", "-i"}
+	strs = append(strs, "-v")
+	strs = append(strs, mountpoints...)
 	strs = append(strs, "--env")
 	strs = append(strs, envirment...)
 	strs = append(strs, "--workdir")
