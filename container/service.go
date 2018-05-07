@@ -98,7 +98,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 }
 
 func getDestination() string {
-	return "root/go"
+	return "/root/go"
 }
 
 func getPWD(projectname string, username string, pwd string) string {
