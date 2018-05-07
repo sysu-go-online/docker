@@ -1,12 +1,13 @@
 package container
 
 import (
-	"github.com/docker/docker/api/types/mount"
 	"context"
 	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
+
+	"github.com/docker/docker/api/types/mount"
 
 	"github.com/docker/docker/api/types"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
@@ -67,7 +68,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		Env:          cont.ENV,
 		Cmd:          cmd,
 		// TODO
-		Image: "golang",
+		Image:      "golang",
 		WorkingDir: getPWD(cont.ProjectName, cont.UserName, cont.PWD),
 		// Entrypoint: []string{"sh"},
 	}
@@ -77,10 +78,10 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
 		Mounts: []mount.Mount{
-			mount.Mount {
-				Type: mount.TypeBind,
+			mount.Mount{
+				Type:   mount.TypeBind,
 				Source: getHostDir(cont.ProjectName, cont.UserName),
-				Target: getPWD(cont.ProjectName, cont.UserName, "/"),
+				Target: getDestination(),
 			},
 		},
 	}
@@ -96,14 +97,18 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 	return
 }
 
+func getDestination() string {
+	return "root/go"
+}
+
 func getPWD(projectname string, username string, pwd string) string {
 	goPath := "/root/go"
 	path := filepath.Join(goPath, "src/github.com/", username, projectname, pwd)
 	return path
 }
 
-func getHostDir(projectname string, username string) string{
+func getHostDir(projectname string, username string) string {
 	home := "/home"
-	path := filepath.Join(home, username, "src/github.com", projectname)
+	path := filepath.Join(home, username, "go")
 	return path
 }
