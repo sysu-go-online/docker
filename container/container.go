@@ -7,6 +7,7 @@ package container
 //********************************************
 
 import (
+	"fmt"
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -70,7 +71,7 @@ func StartContainer(container *Container) {
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
 	if err != nil {
-		container.conn.WriteMessage(websocket.TextMessage, []byte("Executable file not found in $PATH"))
+		fmt.Println(err)
 	}
 	<-readCtl
 }
