@@ -39,28 +39,3 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		container.StartContainer(con)
 	}
 }
-
-// TestFunciton 测试函数。
-// func TestFunciton(formatter *render.Render) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 		defer conn.Close()
-
-// 		// 反json化
-// 		command := &cmdcreator.Command{}
-// 		conn.ReadJSON(command)
-
-// 		// 获得docker命令
-// 		cmd := command.Test()
-// 		con := container.NewContainer(conn, cmd)
-
-// 		// container开始运行
-// 		con.Init()
-
-// 		// 等待container运行结束
-// 		con.Join()
-// 	}
-// }

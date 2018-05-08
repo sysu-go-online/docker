@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/docker/docker/api/types"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
@@ -21,14 +22,22 @@ import (
 
 // 异步读取信息，并发送给connection
 func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
-	for {
-		p, _, err := hjconn.Reader.ReadLine()
-		container.conn.WriteMessage(websocket.TextMessage, p)
-		if err != nil {
-			ctl <- true
-			return
-		}
+	w := WsWriter{
+		conn: container.conn,
 	}
+	_, err := stdcopy.StdCopy(w, w, hjconn.Reader)
+	if err != nil {
+		fmt.Println(err)
+	}
+	ctl <- true
+	// for {
+	// 	p, _, err := hjconn.Reader.ReadLine()
+	// 	container.conn.WriteMessage(websocket.TextMessage, p)
+	// 	if err != nil {
+	// 		ctl <- true
+	// 		return
+	// 	}
+	// }
 }
 
 // 异步读取信息，并发送给cmd
@@ -43,12 +52,13 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 			ctl <- true
 			return
 		}
-		fmt.Println("Message get: " + string(msg))
+		// fmt.Println(string(msg))
 		msg = append(msg, byte('\n'))
 		_, err = dConn.Write(msg)
 		// If message can not be written to the process, kill it
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			return
 		}
 	}
 }
@@ -64,7 +74,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		Tty:          true,
+		Tty:          false,
 		OpenStdin:    true,
 		Env:          cont.ENV,
 		Cmd:          cmd,
@@ -74,7 +84,6 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		// Entrypoint: []string{"sh"},
 	}
 	hostConfig = &container.HostConfig{
-		// TODO
 		Binds:      []string{},
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
@@ -92,7 +101,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		Stderr: true,
 		Stdout: true,
 		Stdin:  true,
-		Logs:   true,
+		Logs:   false,
 	}
 	startOptions = types.ContainerStartOptions{}
 	return
