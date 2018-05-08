@@ -34,39 +34,33 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		command := &cmdcreator.Command{}
 		conn.ReadJSON(command)
 
-		// 获得docker命令
-		cmd := command.Gocmds()
-		con := container.NewContainer(conn, cmd)
-
-		// container开始运行
-		con.Init()
-
-		// 等待container运行结束
-		con.Join()
+		// 新建容器
+		con := container.NewContainer(conn, command)
+		container.StartContainer(con)
 	}
 }
 
 // TestFunciton 测试函数。
-func TestFunciton(formatter *render.Render) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
-		if err != nil {
-			panic(err)
-		}
-		defer conn.Close()
+// func TestFunciton(formatter *render.Render) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		defer conn.Close()
 
-		// 反json化
-		command := &cmdcreator.Command{}
-		conn.ReadJSON(command)
+// 		// 反json化
+// 		command := &cmdcreator.Command{}
+// 		conn.ReadJSON(command)
 
-		// 获得docker命令
-		cmd := command.Test()
-		con := container.NewContainer(conn, cmd)
+// 		// 获得docker命令
+// 		cmd := command.Test()
+// 		con := container.NewContainer(conn, cmd)
 
-		// container开始运行
-		con.Init()
+// 		// container开始运行
+// 		con.Init()
 
-		// 等待container运行结束
-		con.Join()
-	}
-}
+// 		// 等待container运行结束
+// 		con.Join()
+// 	}
+// }
