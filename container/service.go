@@ -32,7 +32,7 @@ func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl 
 }
 
 // 异步读取信息，并发送给cmd
-func readFromClient(dConn net.Conn, cConn *websocket.Conn) {
+func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 	defer dConn.Close()
 
 	// Read message from client and write to process
@@ -40,6 +40,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn) {
 		_, msg, err := cConn.ReadMessage()
 		// If client close connection, kill the process
 		if err != nil {
+			ctl <- true
 			return
 		}
 		fmt.Println("Message get: " + string(msg))
@@ -98,7 +99,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 }
 
 func getDestination() string {
-	return "/root/go"
+	return "/root/go/"
 }
 
 func getPWD(projectname string, username string, pwd string) string {

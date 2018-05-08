@@ -7,7 +7,10 @@ package container
 //********************************************
 
 import (
+	"context"
 	"fmt"
+	"time"
+
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -56,6 +59,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 
 // StartContainer attach and start a container
 func StartContainer(container *Container) {
+	defer StopContainer(container.ID)
 	// Attach container
 	ctx, _, _, _, attachOptions, startOptions := getConfig(container.command)
 	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
@@ -63,10 +67,10 @@ func StartContainer(container *Container) {
 	if err != nil {
 		panic(err)
 	}
+	readCtl := make(chan bool, 2)
 	// Read message from client and send it to docker
-	go readFromClient(hjconn.Conn, container.conn)
+	go readFromClient(hjconn.Conn, container.conn, readCtl)
 	// Read message from docker and send it to client
-	readCtl := make(chan bool, 1)
 	go writeToConnection(container, hjconn, readCtl)
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
@@ -74,4 +78,13 @@ func StartContainer(container *Container) {
 		fmt.Println(err)
 	}
 	<-readCtl
+}
+
+// StopContainer stop container after the connection stops
+func StopContainer(id string) {
+	duration := time.Duration(time.Second * 2)
+	err := DockerClient.ContainerStop(context.Background(), id, &duration)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
