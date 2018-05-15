@@ -2,14 +2,12 @@ package container
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types/mount"
-	ini "github.com/vaughan0/go-ini"
 
 	"github.com/docker/docker/api/types"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
@@ -19,8 +17,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/gorilla/websocket"
-
-	. "github.com/sysu-go-online/docker_end/util"
+	// . "github.com/sysu-go-online/docker_end/util"
 )
 
 // 异步读取信息，并发送给connection
@@ -34,8 +31,8 @@ func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl 
 	// }
 	// ctl <- true
 	for {
-		p, _, err := hjconn.Reader.ReadLine()
-		container.conn.WriteMessage(websocket.TextMessage, p)
+		p, err := hjconn.Reader.ReadByte()
+		container.conn.WriteMessage(websocket.TextMessage, []byte{p})
 		if err != nil {
 			ctl <- true
 			return
@@ -56,7 +53,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 			return
 		}
 		// fmt.Println(string(msg))
-		msg = append(msg, byte('\n'))
+		// msg = append(msg, byte('\n'))
 		_, err = dConn.Write(msg)
 		// If message can not be written to the process, kill it
 		if err != nil {
@@ -122,14 +119,15 @@ func getPWD(projectname string, username string, pwd string) string {
 
 func getHostDir(projectname string, username string) string {
 	// 使用ini文件动态读取配置环境
-	file, err := ini.LoadFile(filepath.Join(GetGOPATH(), "/src/github.com/sysu-go-online/docker_end/config.ini"))
-	if err != nil {
-		panic(err)
-	}
-	home, ok := file.Get("HostInformation", "home")
-	if !ok {
-		panic(errors.New("读取配置文件发生错误"))
-	}
+	// file, err := ini.LoadFile(filepath.Join(GetGOPATH(), "/src/github.com/sysu-go-online/docker_end/config.ini"))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// home, ok := file.Get("HostInformation", "home")
+	// if !ok {
+	// 	panic(errors.New("读取配置文件发生错误"))
+	// }
+	home := "/home"
 	path := filepath.Join(home, username, "go")
 	return path
 }
