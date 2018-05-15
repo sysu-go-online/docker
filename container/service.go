@@ -2,12 +2,14 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types/mount"
+	ini "github.com/vaughan0/go-ini"
 
 	"github.com/docker/docker/api/types"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
@@ -17,10 +19,20 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/gorilla/websocket"
+
+	. "github.com/sysu-go-online/docker_end/util"
 )
 
 // 异步读取信息，并发送给connection
 func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
+	// w := WsWriter{
+	// 	conn: container.conn,
+	// }
+	// _, err := stdcopy.StdCopy(w, w, hjconn.Reader)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// ctl <- true
 	for {
 		p, _, err := hjconn.Reader.ReadLine()
 		container.conn.WriteMessage(websocket.TextMessage, p)
@@ -43,12 +55,13 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 			ctl <- true
 			return
 		}
-		fmt.Println("Message get: " + string(msg))
+		// fmt.Println(string(msg))
 		msg = append(msg, byte('\n'))
 		_, err = dConn.Write(msg)
 		// If message can not be written to the process, kill it
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			return
 		}
 	}
 }
@@ -64,7 +77,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		Tty:          false,
+		Tty:          true,
 		OpenStdin:    true,
 		Env:          cont.ENV,
 		Cmd:          cmd,
@@ -74,7 +87,6 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		// Entrypoint: []string{"sh"},
 	}
 	hostConfig = &container.HostConfig{
-		// TODO
 		Binds:      []string{},
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
@@ -92,7 +104,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		Stderr: true,
 		Stdout: true,
 		Stdin:  true,
-		Logs:   true,
+		Logs:   false,
 	}
 	startOptions = types.ContainerStartOptions{}
 	return
@@ -109,7 +121,15 @@ func getPWD(projectname string, username string, pwd string) string {
 }
 
 func getHostDir(projectname string, username string) string {
-	home := "/Users/huziang/Desktop/home"
+	// 使用ini文件动态读取配置环境
+	file, err := ini.LoadFile(filepath.Join(GetGOPATH(), "/src/github.com/sysu-go-online/docker_end/config.ini"))
+	if err != nil {
+		panic(err)
+	}
+	home, ok := file.Get("HostInformation", "home")
+	if !ok {
+		panic(errors.New("读取配置文件发生错误"))
+	}
 	path := filepath.Join(home, username, "go")
 	return path
 }

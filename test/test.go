@@ -72,7 +72,7 @@ func handleMessage(msg string, conn *websocket.Conn, isFirst bool) error {
 
 func main() {
 	conn, _ := dialDockerService()
-	handleMessage("go run /home/huziang/src/test/main.go", conn, true)
+	handleMessage("go run /go/src/github.com/test/main.go", conn, true)
 	go func() {
 		for {
 			t, bs, err := conn.ReadMessage()
