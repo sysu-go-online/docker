@@ -64,7 +64,7 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		Tty:          true,
+		Tty:          false,
 		OpenStdin:    true,
 		Env:          cont.ENV,
 		Cmd:          cmd,
@@ -109,7 +109,7 @@ func getPWD(projectname string, username string, pwd string) string {
 }
 
 func getHostDir(projectname string, username string) string {
-	home := "/home"
+	home := "/Users/huziang/Desktop/home"
 	path := filepath.Join(home, username, "go")
 	return path
 }
