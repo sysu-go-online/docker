@@ -9,8 +9,10 @@ package container
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -47,9 +49,35 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 		conn:    conn,
 		command: command,
 	}
-	// Create container
+
+	// Get config
 	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(container.command)
+
+	// find image
+	imagename := "golang"
+	images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	find := false
+	for _, image := range images {
+		if strings.Split(image.RepoTags[0], ":")[0] == imagename {
+			find = true
+			break
+		}
+	}
+
+	// if not find, pull image
+	if !find {
+		_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Create container
 	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
+
 	if err != nil {
 		panic(err)
 	}

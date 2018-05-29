@@ -127,7 +127,7 @@ func getHostDir(projectname string, username string) string {
 	// if !ok {
 	// 	panic(errors.New("读取配置文件发生错误"))
 	// }
-	home := "/home"
+	home := "/Users/huziang/Desktop/home"
 	path := filepath.Join(home, username, "go")
 	return path
 }
