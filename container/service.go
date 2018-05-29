@@ -20,6 +20,7 @@ import (
 	// . "github.com/sysu-go-online/docker_end/util"
 )
 
+var goPath string = "/root/go"
 // 异步读取信息，并发送给connection
 func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
 	// w := WsWriter{
@@ -108,11 +109,10 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 }
 
 func getDestination() string {
-	return "/root/go/"
+	return goPath
 }
 
 func getPWD(projectname string, username string, pwd string) string {
-	goPath := "/root/go"
 	path := filepath.Join(goPath, "src/github.com/", username, projectname, pwd)
 	return path
 }
