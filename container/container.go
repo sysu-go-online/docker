@@ -75,13 +75,21 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 		}
 	}
 
-	// Create container
+	// Create container, if image is not pull, wait 10s once until the image pull
 	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
-
-	if err != nil {
-		panic(err)
+	s3, _ := time.ParseDuration("3s")
+	for ; ; ret, err = DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "") {
+		if err != nil && strings.Contains(err.Error(), "No such image") {
+			time.Sleep(s3)
+			continue
+		} else if err != nil {
+			panic(err)
+		} else {
+			container.ID = ret.ID
+			break
+		}
 	}
-	container.ID = ret.ID
+
 	return &container
 }
 
