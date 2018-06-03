@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 	"github.com/sysu-go-online/docker_end/container"
+	"github.com/sysu-go-online/docker_end/token"
 	"github.com/unrolled/render"
 )
 
@@ -37,5 +38,23 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		// 新建容器
 		con := container.NewContainer(conn, command)
 		container.StartContainer(con)
+	}
+}
+
+// HandleAuth 处理权限验证
+func HandleAuth(formatter *render.Render) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		code := r.Form["code"][0]
+
+		tk := ""
+		token.New(code, &tk)
+
+		w.Header().Set("Token", tk)
+
+		formatter.JSON(w, 200, struct {
+			Name string `json:"name"`
+			Icon string `json:"icon"`
+		}{})
 	}
 }
