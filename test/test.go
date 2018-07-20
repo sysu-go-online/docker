@@ -28,7 +28,7 @@ func dialDockerService() (*websocket.Conn, error) {
 		dockerAddr = "localhost"
 	}
 	if len(dockerPort) == 0 {
-		dockerPort = "8998"
+		dockerPort = "8888"
 	}
 	dockerPort = ":" + dockerPort
 	dockerAddr = dockerAddr + dockerPort
@@ -46,9 +46,9 @@ func handleMessage(msg string, conn *websocket.Conn, isFirst bool) error {
 	var err error
 	if isFirst {
 		projectName := "test"
-		username := "huziang"
+		username := "golang"
 		pwd := ""
-		env := []string{"GOPATH", "/home/huziang"}
+		env := []string{"GOPATH", "/root/go:/home/go"}
 		workSpace = &Command{
 			Command:     msg,
 			PWD:         pwd,
@@ -72,7 +72,6 @@ func handleMessage(msg string, conn *websocket.Conn, isFirst bool) error {
 
 func main() {
 	conn, _ := dialDockerService()
-	handleMessage("go run /go/src/github.com/test/main.go", conn, true)
 	go func() {
 		for {
 			t, bs, err := conn.ReadMessage()
@@ -81,11 +80,10 @@ func main() {
 				os.Exit(0)
 			}
 			if t == websocket.TextMessage {
-				fmt.Println(string(bs))
+				fmt.Print(string(bs))
 			}
 		}
 	}()
-
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 
@@ -98,6 +96,7 @@ func main() {
 			}
 		}
 	}()
+	handleMessage("go run main.go", conn, true)
 
 	for {
 
