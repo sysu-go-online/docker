@@ -9,8 +9,13 @@ package container
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -26,17 +31,27 @@ const (
 
 var idset int
 var DockerClient *client.Client
+var DefaultLanguage = "golang"
 
 // Container 通过接口封装输入输出给
 type Container struct {
 	ID      string              // container ID
 	conn    *websocket.Conn     // 绑定的websocket，其中一端
 	command *cmdcreator.Command // User command and other messages
+	context *UserConf
+}
+
+// UserConf stores conf read from user file
+type UserConf struct {
+	Language    string
+	Username    string
+	ProjectName string
+	Environment []string
 }
 
 func init() {
 	// Get docker client with preset env
-	dockerClient, err := client.NewEnvClient()
+	dockerClient, err := client.NewClientWithOpts(client.WithVersion("1.37"))
 	if err != nil {
 		panic(err)
 	}
@@ -44,14 +59,33 @@ func init() {
 }
 
 // NewContainer 新创建一个容器指针
+// prepare container environment
+// read user information from command
+// set in-container environment from user-defined file
 func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container {
 	container := Container{
 		conn:    conn,
 		command: command,
 	}
 
+	// **********Read information from user***********
+	userProjectConfPath := filepath.Join("/home", command.UserName, command.ProjectName, "go-online.yml")
+	userProjectConf := UserConf{}
+	if _, err := os.Stat(userProjectConfPath); os.IsExist(err) {
+		userProjectConfData, err := ioutil.ReadFile(userProjectConfPath)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if err = yaml.Unmarshal(userProjectConfData, &userProjectConf); err != nil {
+			fmt.Println(err)
+		}
+	}
+	userProjectConf.SetDefault(&container)
+	container.context = &userProjectConf
+	// ***********************************************
+
 	// Get config
-	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(container.command)
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container)
 
 	// find image
 	imagename := "golang"
@@ -97,7 +131,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 func StartContainer(container *Container) {
 	defer StopContainer(container.ID)
 	// Attach container
-	ctx, _, _, _, attachOptions, startOptions := getConfig(container.command)
+	ctx, _, _, _, attachOptions, startOptions := getConfig(container)
 	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
 	defer hjconn.Close()
 	if err != nil {
@@ -122,5 +156,49 @@ func StopContainer(id string) {
 	err := DockerClient.ContainerStop(context.Background(), id, &duration)
 	if err != nil {
 		fmt.Println(err)
+	}
+}
+
+// SetDefault set default value
+// TODO: add env according to the language
+func (c *UserConf) SetDefault(container *Container) {
+	if container != nil && c != nil {
+		if c.Language == "" {
+			c.Language = DefaultLanguage
+		}
+		if c.ProjectName == "" {
+			c.ProjectName = container.command.ProjectName
+		}
+		if c.Username == "" {
+			c.Username = container.command.UserName
+		}
+		// add necassary env
+		for _, v := range c.Environment {
+			firstEqualPos := strings.Index(v, "=")
+			if firstEqualPos == -1 {
+				continue
+			}
+			key := v[0:firstEqualPos]
+			value := v[firstEqualPos:]
+			isSet := false
+			for i, v1 := range container.command.ENV {
+				firstEqualPos1 := strings.Index(v1, "=")
+				if firstEqualPos1 == -1 {
+					// remove invalid entry
+					container.command.ENV = append(container.command.ENV[:i], container.command.ENV[i+1:]...)
+				}
+				key1 := v[0:firstEqualPos]
+				value1 := v[firstEqualPos:]
+				if key1 == key {
+					value = strings.Join([]string{value1, value}, ":")
+					container.command.ENV[i] = strings.Join([]string{key, value}, "=")
+					isSet = true
+					break
+				}
+			}
+			if !isSet {
+				container.command.ENV = append(container.command.ENV, v)
+			}
+		}
 	}
 }

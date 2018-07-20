@@ -10,17 +10,16 @@ import (
 	"github.com/docker/docker/api/types/mount"
 
 	"github.com/docker/docker/api/types"
-	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/docker/docker/api/types/network"
 
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/gorilla/websocket"
-	// . "github.com/sysu-go-online/docker_end/util"
 )
 
-var goPath string = "/root/go"
+var goImportPath = "/root/go"
+
 // 异步读取信息，并发送给connection
 func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
 	// w := WsWriter{
@@ -65,11 +64,13 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 }
 
 // getConfig returns all the need config with given parameters
-func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container.Config,
+// TODO: mount according to language
+func getConfig(cont *Container) (ctx context.Context, config *container.Config,
 	hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig,
 	attachOptions types.ContainerAttachOptions, startOptions types.ContainerStartOptions) {
 	ctx = context.Background()
-	cmd := strings.Split(cont.Command, " ")
+	cmd := strings.Split(cont.command.Command, " ")
+	image := getImageName(cont.context.Language)
 	config = &container.Config{
 		User:         "root",
 		AttachStdin:  true,
@@ -77,11 +78,10 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AttachStderr: true,
 		Tty:          true,
 		OpenStdin:    true,
-		Env:          cont.ENV,
+		Env:          cont.context.Environment,
 		Cmd:          cmd,
-		// TODO
-		Image:      "golang",
-		WorkingDir: getPWD(cont.ProjectName, cont.UserName, cont.PWD),
+		Image:        image,
+		WorkingDir:   getPWD(cont.context.ProjectName, cont.context.Username, cont.command.PWD),
 		// Entrypoint: []string{"sh"},
 	}
 	hostConfig = &container.HostConfig{
@@ -89,10 +89,18 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
 		Mounts: []mount.Mount{
+			// project
+			mount.Mount{
+				Type: mount.TypeBind,
+				// bind current project only
+				Source: getHostDir(cont.command.ProjectName, cont.command.UserName),
+				Target: getDestination(cont.context.ProjectName, cont.context.Username),
+			},
+			// import path
 			mount.Mount{
 				Type:   mount.TypeBind,
-				Source: getHostDir(cont.ProjectName, cont.UserName),
-				Target: getDestination(),
+				Source: filepath.Join("/home", cont.command.UserName, "go/import"),
+				Target: goImportPath,
 			},
 		},
 	}
@@ -108,26 +116,27 @@ func getConfig(cont *cmdcreator.Command) (ctx context.Context, config *container
 	return
 }
 
-func getDestination() string {
-	return goPath
+// TODO: return according to the language
+func getDestination(projectname string, username string) string {
+	path := filepath.Join("/home", "go/src/github.com", username, projectname)
+	fmt.Println(path)
+	return path
 }
 
 func getPWD(projectname string, username string, pwd string) string {
-	path := filepath.Join(goPath, "src/github.com/", username, projectname, pwd)
+	path := filepath.Join("/home", "go/src/github.com/", username, projectname, pwd)
 	return path
 }
 
+// TODO: return according to the language
 func getHostDir(projectname string, username string) string {
-	// 使用ini文件动态读取配置环境
-	// file, err := ini.LoadFile(filepath.Join(GetGOPATH(), "/src/github.com/sysu-go-online/docker_end/config.ini"))
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// home, ok := file.Get("HostInformation", "home")
-	// if !ok {
-	// 	panic(errors.New("读取配置文件发生错误"))
-	// }
-	home := "/Users/huziang/Desktop/home"
-	path := filepath.Join(home, username, "go")
+	home := "/home"
+	path := filepath.Join(home, username, "go/src/github.com", projectname)
 	return path
+}
+
+// TODO: return image name by language
+func getImageName(language string) string {
+	// Return golang by default
+	return "golang"
 }
