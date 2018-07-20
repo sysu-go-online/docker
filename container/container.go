@@ -7,14 +7,21 @@ package container
 //********************************************
 
 import (
-	"bufio"
+	"context"
 	"fmt"
-	"io"
-	"os/exec"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v2"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/gorilla/websocket"
-
-	. "github.com/sysu-go-online/docker_end/util"
 )
 
 const (
@@ -23,91 +30,175 @@ const (
 )
 
 var idset int
+var DockerClient *client.Client
+var DefaultLanguage = "golang"
 
 // Container 通过接口封装输入输出给
 type Container struct {
-	ID   int             // 主键
-	conn *websocket.Conn // 绑定的websocket，其中一端
-	cmd  *exec.Cmd       // 绑定的cmd执行指令，另外一段
+	ID      string              // container ID
+	conn    *websocket.Conn     // 绑定的websocket，其中一端
+	command *cmdcreator.Command // User command and other messages
+	context *UserConf
+}
+
+// UserConf stores conf read from user file
+type UserConf struct {
+	Language    string
+	Username    string
+	ProjectName string
+	Environment []string
+}
+
+func init() {
+	// Get docker client with preset env
+	dockerClient, err := client.NewClientWithOpts(client.WithVersion("1.37"))
+	if err != nil {
+		panic(err)
+	}
+	DockerClient = dockerClient
 }
 
 // NewContainer 新创建一个容器指针
-func NewContainer(conn *websocket.Conn, cmd *exec.Cmd) *Container {
-	container := new(Container)
-	container.ID = idset
-	idset++
-	container.conn = conn
-	container.cmd = cmd
-	return container
-}
+// prepare container environment
+// read user information from command
+// set in-container environment from user-defined file
+func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container {
+	container := Container{
+		conn:    conn,
+		command: command,
+	}
 
-// Init 协程初始化，并开始运行
-func (con *Container) Init() {
-	defer func() {
-		if err := recover(); err != nil {
-			con.conn.WriteMessage(websocket.TextMessage, []byte("Error!"))
+	// **********Read information from user***********
+	userProjectConfPath := filepath.Join("/home", command.UserName, command.ProjectName, "go-online.yml")
+	userProjectConf := UserConf{}
+	if _, err := os.Stat(userProjectConfPath); os.IsExist(err) {
+		userProjectConfData, err := ioutil.ReadFile(userProjectConfPath)
+		if err != nil {
+			fmt.Println(err)
 		}
-	}()
+		if err = yaml.Unmarshal(userProjectConfData, &userProjectConf); err != nil {
+			fmt.Println(err)
+		}
+	}
+	userProjectConf.SetDefault(&container)
+	container.context = &userProjectConf
+	// ***********************************************
 
-	// docker stdin, stdout, stderr设置
-	stdin, err := con.cmd.StdinPipe()
-	DealPanic(err)
+	// Get config
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container)
 
-	stdout, err := con.cmd.StdoutPipe()
-	DealPanic(err)
-
-	stderr, err := con.cmd.StderrPipe()
-	DealPanic(err)
-
-	// docker 启动
-	con.cmd.Start()
-
-	// 异步读取信息，并发送给connection
-	writeToConnection := func(out io.ReadCloser) {
-		defer out.Close()
-		reader := bufio.NewReader(out)
-		for {
-			line, _, err := reader.ReadLine()
-			fmt.Println("Message send: " + string(line))
-			// 传输结束，发出信号
-			if err != nil {
-				break
-			} else {
-				con.conn.WriteMessage(websocket.TextMessage, line)
-			}
+	// find image
+	imagename := "golang"
+	images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	find := false
+	for _, image := range images {
+		if strings.Split(image.RepoTags[0], ":")[0] == imagename {
+			find = true
+			break
 		}
 	}
 
-	// 异步读取信息，并发送给cmd
-	readFromConnection := func(in io.WriteCloser) {
-		defer in.Close()
-
-		// Read message from client and write to process
-		for {
-			_, msg, err := con.conn.ReadMessage()
-			// If client close connection, kill the process
-			if err != nil {
-				con.cmd.Process.Kill()
-				break
-			}
-			fmt.Println("Message get: " + string(msg))
-			msg = append(msg, byte('\n'))
-			_, err = in.Write(msg)
-			// If message can not be written to the process, kill it
-			if err != nil {
-				con.cmd.Process.Kill()
-				break
-			}
+	// if not find, pull image
+	if !find {
+		_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// asyn write and read
-	go readFromConnection(stdin)
-	go writeToConnection(stdout)
-	go writeToConnection(stderr)
+	// Create container, if image is not pull, wait 10s once until the image pull
+	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
+	s3, _ := time.ParseDuration("3s")
+	for ; ; ret, err = DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "") {
+		if err != nil && strings.Contains(err.Error(), "No such image") {
+			time.Sleep(s3)
+			continue
+		} else if err != nil {
+			panic(err)
+		} else {
+			container.ID = ret.ID
+			break
+		}
+	}
+
+	return &container
 }
 
-// Join 当两个协程全部运行完毕时，程序结束
-func (con *Container) Join() {
-	con.cmd.Wait()
+// StartContainer attach and start a container
+func StartContainer(container *Container) {
+	defer StopContainer(container.ID)
+	// Attach container
+	ctx, _, _, _, attachOptions, startOptions := getConfig(container)
+	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
+	defer hjconn.Close()
+	if err != nil {
+		panic(err)
+	}
+	readCtl := make(chan bool, 2)
+	// Read message from client and send it to docker
+	go readFromClient(hjconn.Conn, container.conn, readCtl)
+	// Read message from docker and send it to client
+	go writeToConnection(container, hjconn, readCtl)
+	// Start container
+	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
+	if err != nil {
+		fmt.Println(err)
+	}
+	<-readCtl
+}
+
+// StopContainer stop container after the connection stops
+func StopContainer(id string) {
+	duration := time.Duration(time.Second * 2)
+	err := DockerClient.ContainerStop(context.Background(), id, &duration)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+// SetDefault set default value
+// TODO: add env according to the language
+func (c *UserConf) SetDefault(container *Container) {
+	if container != nil && c != nil {
+		if c.Language == "" {
+			c.Language = DefaultLanguage
+		}
+		if c.ProjectName == "" {
+			c.ProjectName = container.command.ProjectName
+		}
+		if c.Username == "" {
+			c.Username = container.command.UserName
+		}
+		// add necassary env
+		for _, v := range c.Environment {
+			firstEqualPos := strings.Index(v, "=")
+			if firstEqualPos == -1 {
+				continue
+			}
+			key := v[0:firstEqualPos]
+			value := v[firstEqualPos:]
+			isSet := false
+			for i, v1 := range container.command.ENV {
+				firstEqualPos1 := strings.Index(v1, "=")
+				if firstEqualPos1 == -1 {
+					// remove invalid entry
+					container.command.ENV = append(container.command.ENV[:i], container.command.ENV[i+1:]...)
+				}
+				key1 := v[0:firstEqualPos]
+				value1 := v[firstEqualPos:]
+				if key1 == key {
+					value = strings.Join([]string{value1, value}, ":")
+					container.command.ENV[i] = strings.Join([]string{key, value}, "=")
+					isSet = true
+					break
+				}
+			}
+			if !isSet {
+				container.command.ENV = append(container.command.ENV, v)
+			}
+		}
+	}
 }

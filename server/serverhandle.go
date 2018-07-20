@@ -34,39 +34,26 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		command := &cmdcreator.Command{}
 		conn.ReadJSON(command)
 
-		// 获得docker命令
-		cmd := command.Gocmds()
-		con := container.NewContainer(conn, cmd)
-
-		// container开始运行
-		con.Init()
-
-		// 等待container运行结束
-		con.Join()
+		// 新建容器
+		con := container.NewContainer(conn, command)
+		container.StartContainer(con)
 	}
 }
 
-// TestFunciton 测试函数。
-func TestFunciton(formatter *render.Render) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
-		if err != nil {
-			panic(err)
-		}
-		defer conn.Close()
+// HandleAuth 处理权限验证
+// func HandleAuth(formatter *render.Render) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		r.ParseForm()
+// 		code := r.Form["code"][0]
 
-		// 反json化
-		command := &cmdcreator.Command{}
-		conn.ReadJSON(command)
+// 		tk := ""
+// 		token.New(code, &tk)
 
-		// 获得docker命令
-		cmd := command.Test()
-		con := container.NewContainer(conn, cmd)
+// 		w.Header().Set("Token", tk)
 
-		// container开始运行
-		con.Init()
-
-		// 等待container运行结束
-		con.Join()
-	}
-}
+// 		formatter.JSON(w, 200, struct {
+// 			Name string `json:"name"`
+// 			Icon string `json:"icon"`
+// 		}{})
+// 	}
+// }
