@@ -31,7 +31,8 @@ const (
 
 var idset int
 var DockerClient *client.Client
-var DefaultLanguage = "golang"
+var DefaultLanguage string
+var tty bool
 
 // Container 通过接口封装输入输出给
 type Container struct {
@@ -84,18 +85,30 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	container.context = &userProjectConf
 	// ***********************************************
 
+	// **********get type and decide image************
+	var imagename string
+	switch command.Type {
+	case "tty":
+		imagename = "golang"
+		tty = true
+	case "debug":
+		imagename = "txzdream/go-online-debug_service:dev"
+		tty = false
+	}
+	// ***********************************************
+
 	// Get config
-	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container)
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container, tty)
 
 	// find image
-	imagename := "golang"
+	// TODO: match image tag
 	images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
 	if err != nil {
 		panic(err)
 	}
 	find := false
 	for _, image := range images {
-		if strings.Split(image.RepoTags[0], ":")[0] == imagename {
+		if len(image.RepoTags) > 0 && strings.Split(image.RepoTags[0], ":")[0] == strings.Split(imagename, ":")[0] {
 			find = true
 			break
 		}
@@ -103,6 +116,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 
 	// if not find, pull image
 	if !find {
+		fmt.Println("Cant not find such image, trying to pull it")
 		_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
 		if err != nil {
 			panic(err)
@@ -110,9 +124,10 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	}
 
 	// Create container, if image is not pull, wait 10s once until the image pull
-	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
+	// ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
 	s3, _ := time.ParseDuration("3s")
-	for ; ; ret, err = DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "") {
+	for {
+		ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
 		if err != nil && strings.Contains(err.Error(), "No such image") {
 			time.Sleep(s3)
 			continue
@@ -131,7 +146,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 func StartContainer(container *Container) {
 	defer StopContainer(container.ID)
 	// Attach container
-	ctx, _, _, _, attachOptions, startOptions := getConfig(container)
+	ctx, _, _, _, attachOptions, startOptions := getConfig(container, false)
 	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
 	defer hjconn.Close()
 	if err != nil {
@@ -141,7 +156,7 @@ func StartContainer(container *Container) {
 	// Read message from client and send it to docker
 	go readFromClient(hjconn.Conn, container.conn, readCtl)
 	// Read message from docker and send it to client
-	go writeToConnection(container, hjconn, readCtl)
+	go writeToConnection(container, hjconn, readCtl, tty)
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
 	if err != nil {

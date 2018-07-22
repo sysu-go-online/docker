@@ -21,8 +21,8 @@ const (
 	SocketWriteBufferSize = 1024
 )
 
-// HandleConnection 这个是在处理客户端会阻塞的代码。
-func HandleConnection(formatter *render.Render) http.HandlerFunc {
+// HandleTTYConnection 这个是在处理客户端会阻塞的代码。
+func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
 		if err != nil {
@@ -40,20 +40,21 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 	}
 }
 
-// HandleAuth 处理权限验证
-// func HandleAuth(formatter *render.Render) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		r.ParseForm()
-// 		code := r.Form["code"][0]
+// HandleDebugConnection handle debug message from api server
+func HandleDebugConnection(formatter *render.Render) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
+		if err != nil {
+			panic(err)
+		}
+		defer conn.Close()
 
-// 		tk := ""
-// 		token.New(code, &tk)
+		// 反json化
+		command := &cmdcreator.Command{}
+		conn.ReadJSON(command)
 
-// 		w.Header().Set("Token", tk)
-
-// 		formatter.JSON(w, 200, struct {
-// 			Name string `json:"name"`
-// 			Icon string `json:"icon"`
-// 		}{})
-// 	}
-// }
+		// 新建debug容器
+		con := container.NewContainer(conn, command)
+		container.StartContainer(con)
+	}
+}
