@@ -22,7 +22,7 @@ import (
 var goImportPath = "/root/go"
 
 // 异步读取信息，并发送给connection
-func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool, tty bool) {
+func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
 	if !tty {
 		w := WsWriter{
 			conn: container.conn,
@@ -61,8 +61,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 			ctl <- true
 			return
 		}
-		// fmt.Println(msg)
-		// msg = append(msg, byte('\n'))
+		// fmt.Print(string(msg))
 		_, err = dConn.Write(msg)
 		// If message can not be written to the process, kill it
 		if err != nil {
@@ -98,6 +97,10 @@ func getConfig(cont *Container, tty bool) (ctx context.Context, config *containe
 		AutoRemove: true,
 		DNS:        []string{"8.8.8.8"},
 		Mounts:     getMountList(cont),
+	}
+	if cont.command.Type == "debug" {
+		hostConfig.CapAdd = []string{"SYS_PTRACE"}
+		hostConfig.SecurityOpt = []string{"seccomp=unconfined"}
 	}
 	networkingConfig = &network.NetworkingConfig{}
 	attachOptions = types.ContainerAttachOptions{

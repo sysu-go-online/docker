@@ -156,7 +156,7 @@ func StartContainer(container *Container) {
 	// Read message from client and send it to docker
 	go readFromClient(hjconn.Conn, container.conn, readCtl)
 	// Read message from docker and send it to client
-	go writeToConnection(container, hjconn, readCtl, tty)
+	go writeToConnection(container, hjconn, readCtl)
 	// Start container
 	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
 	if err != nil {
