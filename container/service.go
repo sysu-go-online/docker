@@ -90,7 +90,7 @@ func getConfig(cont *Container, tty bool) (ctx context.Context, config *containe
 		Cmd:          cmd,
 		Image:        image,
 		WorkingDir:   getPWD(cont),
-		Entrypoint:   cont.command.Entrypoint,
+		// Entrypoint:   cont.command.Entrypoint,
 	}
 	hostConfig = &container.HostConfig{
 		Binds:      []string{},
