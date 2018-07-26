@@ -21,8 +21,8 @@ const (
 	SocketWriteBufferSize = 1024
 )
 
-// HandleConnection 这个是在处理客户端会阻塞的代码。
-func HandleConnection(formatter *render.Render) http.HandlerFunc {
+// HandleTTYConnection 这个是在处理客户端会阻塞的代码。
+func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
 		if err != nil {
@@ -34,20 +34,14 @@ func HandleConnection(formatter *render.Render) http.HandlerFunc {
 		command := &cmdcreator.Command{}
 		conn.ReadJSON(command)
 
-		// 获得docker命令
-		cmd := command.Gocmds()
-		con := container.NewContainer(conn, cmd)
-
-		// container开始运行
-		con.Init()
-
-		// 等待container运行结束
-		con.Join()
+		// 新建容器
+		con := container.NewContainer(conn, command)
+		container.StartContainer(con)
 	}
 }
 
-// TestFunciton 测试函数。
-func TestFunciton(formatter *render.Render) http.HandlerFunc {
+// HandleDebugConnection handle debug message from api server
+func HandleDebugConnection(formatter *render.Render) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
 		if err != nil {
@@ -59,14 +53,8 @@ func TestFunciton(formatter *render.Render) http.HandlerFunc {
 		command := &cmdcreator.Command{}
 		conn.ReadJSON(command)
 
-		// 获得docker命令
-		cmd := command.Test()
-		con := container.NewContainer(conn, cmd)
-
-		// container开始运行
-		con.Init()
-
-		// 等待container运行结束
-		con.Join()
+		// 新建debug容器
+		con := container.NewContainer(conn, command)
+		container.StartContainer(con)
 	}
 }
