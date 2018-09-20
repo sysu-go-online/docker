@@ -175,17 +175,17 @@ func getMountList(container *Container) []mount.Mount {
 			Source: getHostDir(container),
 			Target: getDestination(container),
 		},
-	// Mount git config file
-	// mount.Mount{
-	// 	Type:   mount.TypeBind,
-	// 	Source: filepath.Join("/home", container.command.UserName, "gitconfig"),
-	// 	Target: filepath.Join("/etc/gitconfig"),
-	// },
-	// mount.Mount{
-	// 	Type:   mount.TypeBind,
-	// 	Source: filepath.Join("/home", container.command.UserName, ".gitconfig"),
-	// 	Target: filepath.Join("/home", container.command.UserName, ".gitconfig"),
-	)
+		// Mount git config file
+		mount.Mount{
+			Type:   mount.TypeBind,
+			Source: filepath.Join("/home", container.command.UserName, "git/gitconfig"),
+			Target: filepath.Join("/etc/gitconfig"),
+		},
+		mount.Mount{
+			Type:   mount.TypeBind,
+			Source: filepath.Join("/home", container.command.UserName, "git/.gitconfig"),
+			Target: filepath.Join("/home", container.command.UserName, ".gitconfig"),
+		})
 	if container.command.Type == "tty" {
 		mounts = append(mounts, mount.Mount{
 			// import path
