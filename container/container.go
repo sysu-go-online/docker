@@ -155,6 +155,17 @@ func StartContainer(container *Container) {
 	if err != nil {
 		panic(err)
 	}
+	// send container message to api service
+	type ret struct {
+		Msg  string `json:"msg"`
+		ID   string `json:"id"`
+		Type string `json:"type"`
+	}
+	body := ret{}
+	body.ID = container.ID
+	body.Type = "tty"
+	container.conn.WriteJSON(body)
+
 	readCtl := make(chan bool, 2)
 	// Read message from client and send it to docker
 	go readFromClient(hjconn.Conn, container.conn, readCtl)
