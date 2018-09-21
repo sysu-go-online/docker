@@ -17,7 +17,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -85,43 +84,47 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	container.context = &userProjectConf
 	// ***********************************************
 
-	// **********get type and decide image************
-	var imagename string
-	switch command.Type {
-	case "tty":
-		imagename = "golang"
-		tty = true
-	case "debug":
-		imagename = "txzdream/go-online-debug_service:dev"
-		tty = false
-	}
-	// ***********************************************
+	/*
+		// **********get type and decide image************
+		var imagename string
+		switch command.Type {
+		case "tty":
+			imagename = "golang"
+			tty = true
+		case "debug":
+			imagename = "txzdream/go-online-debug_service:dev"
+			tty = false
+		}
+		// ***********************************************
+	*/
 
 	// Get config
 	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container, tty)
 
-	// find image
-	// TODO: match image tag
-	images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
-	if err != nil {
-		panic(err)
-	}
-	find := false
-	for _, image := range images {
-		if len(image.RepoTags) > 0 && strings.Split(image.RepoTags[0], ":")[0] == strings.Split(imagename, ":")[0] {
-			find = true
-			break
-		}
-	}
-
-	// if not find, pull image
-	if !find {
-		fmt.Println("Cant not find such image, trying to pull it")
-		_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
+	/*
+		// find image
+		// TODO: match image tag
+		images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
 		if err != nil {
 			panic(err)
 		}
-	}
+		find := false
+		for _, image := range images {
+			if len(image.RepoTags) > 0 && strings.Split(image.RepoTags[0], ":")[0] == strings.Split(imagename, ":")[0] {
+				find = true
+				break
+			}
+		}
+
+		// if not find, pull image
+		if !find {
+			fmt.Println("Cant not find such image, trying to pull it")
+			_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
+			if err != nil {
+				panic(err)
+			}
+		}
+	*/
 
 	// Create container, if image is not pull, wait 10s once until the image pull
 	// ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")

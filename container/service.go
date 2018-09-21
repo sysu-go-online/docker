@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/docker/docker/api/types"
 
@@ -38,9 +39,21 @@ func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl 
 			}
 		}
 	} else {
+		type ret struct {
+			Msg  string `json:"msg"`
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		}
+		body := ret{}
+		body.ID = container.ID
+		body.Type = "tty"
 		for {
 			p, err := hjconn.Reader.ReadByte()
-			container.conn.WriteMessage(websocket.TextMessage, []byte{p})
+			if err != nil {
+				break
+			}
+			body.Msg = string(p)
+			err = container.conn.WriteJSON(body)
 			if err != nil {
 				break
 			}
@@ -55,14 +68,15 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 
 	// Read message from client and write to process
 	for {
-		_, msg, err := cConn.ReadMessage()
+		msg := &cmdcreator.Command{}
+		err := cConn.ReadJSON(msg)
 		// If client close connection, kill the process
 		if err != nil {
 			ctl <- true
 			return
 		}
 		// fmt.Print(string(msg))
-		_, err = dConn.Write(msg)
+		_, err = dConn.Write([]byte(msg.Command))
 		// If message can not be written to the process, kill it
 		if err != nil {
 			fmt.Println(err)
