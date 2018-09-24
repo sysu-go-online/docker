@@ -16,11 +16,14 @@ before_install:
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
 
+install:
+  - go get ./... || true
+  - rm -rf $GOPATH/src/github.com/docker/docker/vendor
+  - go get ./... || true
+  - rm -rf $GOPATH/src/github.com/docker/distrubution/vendor
+
 # Test step
 script:
-  - rm -rf $GOPATH/src/github.com/docker/docker/vendor
-  - go get ./...
-  - rm -rf $GOPATH/src/github.com/docker/distrubution/vendor
 # Compile code
   - CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 # Build image locally
