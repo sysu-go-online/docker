@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/docker/docker/api/types/mount"
@@ -18,6 +19,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/docker/go-connections/nat"
 )
 
 var goImportPath = "/root/go"
@@ -87,7 +90,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 
 // getConfig returns all the need config with given parameters
 // TODO: mount according to language
-func getConfig(cont *Container, tty bool) (ctx context.Context, config *container.Config,
+func getConfig(cont *Container, comm *cmdcreator.Command, tty bool) (ctx context.Context, config *container.Config,
 	hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig,
 	attachOptions types.ContainerAttachOptions, startOptions types.ContainerStartOptions) {
 	ctx = context.Background()
@@ -105,6 +108,18 @@ func getConfig(cont *Container, tty bool) (ctx context.Context, config *containe
 		Image:        image,
 		WorkingDir:   getPWD(cont),
 		// Entrypoint:   cont.command.Entrypoint,
+	}
+	if comm != nil {
+		ep := nat.PortSet{}
+		for _, v := range comm.Ports {
+			p, err := nat.NewPort("tcp", strconv.Itoa(v))
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			ep[p] = struct{}{}
+		}
+		config.ExposedPorts = ep
 	}
 	hostConfig = &container.HostConfig{
 		Binds:      []string{},

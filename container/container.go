@@ -101,7 +101,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	*/
 
 	// Get config
-	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container, tty)
+	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container, command, tty)
 
 	/*
 		// find image
@@ -175,7 +175,7 @@ func ConnectNetwork(cont *Container) error {
 func StartContainer(container *Container) {
 	defer StopContainer(container.ID)
 	// Attach container
-	ctx, _, _, _, attachOptions, startOptions := getConfig(container, false)
+	ctx, _, _, _, attachOptions, startOptions := getConfig(container, nil, false)
 	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
 	defer hjconn.Close()
 	if err != nil {

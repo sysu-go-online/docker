@@ -14,4 +14,5 @@ type Command struct {
 	ProjectName string   `json:"project"`
 	Entrypoint  []string `json:"entrypoint"`
 	Type        string   `json:"type"`
+	Ports       []int    `json:"port"`
 }
