@@ -6,6 +6,7 @@ package server
 //********************************************
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -36,6 +37,10 @@ func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 
 		// 新建容器
 		con := container.NewContainer(conn, command)
+		err = container.ConnectNetwork(con)
+		if err != nil {
+			fmt.Println(err)
+		}
 		container.StartContainer(con)
 	}
 }

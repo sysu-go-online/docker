@@ -17,6 +17,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
@@ -143,6 +145,30 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	}
 
 	return &container
+}
+
+// ConnectNetwork connect a container to network given in env
+func ConnectNetwork(cont *Container) error {
+	list, err := DockerClient.NetworkList(context.Background(), types.NetworkListOptions{})
+	if err != nil {
+		return err
+	}
+	CONTAINERNETWORKNAME := os.Getenv("CONTAINER_NETWORK")
+	if len(CONTAINERNETWORKNAME) == 0 {
+		CONTAINERNETWORKNAME = "user-services"
+	}
+	var CONTAINERNETWORKID string
+	for _, v := range list {
+		if strings.Contains(v.Name, CONTAINERNETWORKNAME) {
+			CONTAINERNETWORKID = v.ID
+			break
+		}
+	}
+	if CONTAINERNETWORKID == "" {
+		fmt.Printf("Can not find network named %s\n", CONTAINERNETWORKNAME)
+		return nil
+	}
+	return DockerClient.NetworkConnect(context.Background(), CONTAINERNETWORKID, cont.ID, &network.EndpointSettings{})
 }
 
 // StartContainer attach and start a container
