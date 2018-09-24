@@ -20,7 +20,7 @@ install:
   - go get ./... || true
   - rm -rf $GOPATH/src/github.com/docker/docker/vendor
   - go get ./... || true
-  - rm -rf $GOPATH/src/github.com/docker/distrubution/vendor
+  - rm -rf $GOPATH/src/github.com/docker/distribution/vendor
 
 # Test step
 script:
