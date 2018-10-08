@@ -84,6 +84,7 @@ func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container 
 	}
 	userProjectConf.SetDefault(&container)
 	container.context = &userProjectConf
+	tty = true
 	// ***********************************************
 
 	/*

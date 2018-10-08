@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
 
 	"github.com/docker/docker/api/types"
@@ -27,41 +26,41 @@ var goImportPath = "/root/go"
 
 // 异步读取信息，并发送给connection
 func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl chan<- bool) {
-	if !tty {
-		w := WsWriter{
-			conn: container.conn,
+	// if !tty {
+	// 	w := WsWriter{
+	// 		conn: container.conn,
+	// 	}
+	// 	for {
+	// 		written, err := stdcopy.StdCopy(w, w, hjconn.Reader)
+	// 		if err != nil {
+	// 			fmt.Println(err)
+	// 			break
+	// 		}
+	// 		if written == 0 {
+	// 			break
+	// 		}
+	// 	}
+	// } else {
+	type ret struct {
+		Msg  string `json:"msg"`
+		ID   string `json:"id"`
+		Type string `json:"type"`
+	}
+	body := ret{}
+	body.ID = container.ID
+	body.Type = "tty"
+	for {
+		p, err := hjconn.Reader.ReadByte()
+		if err != nil {
+			break
 		}
-		for {
-			written, err := stdcopy.StdCopy(w, w, hjconn.Reader)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-			if written == 0 {
-				break
-			}
-		}
-	} else {
-		type ret struct {
-			Msg  string `json:"msg"`
-			ID   string `json:"id"`
-			Type string `json:"type"`
-		}
-		body := ret{}
-		body.ID = container.ID
-		body.Type = "tty"
-		for {
-			p, err := hjconn.Reader.ReadByte()
-			if err != nil {
-				break
-			}
-			body.Msg = string(p)
-			err = container.conn.WriteJSON(body)
-			if err != nil {
-				break
-			}
+		body.Msg = string(p)
+		err = container.conn.WriteJSON(body)
+		if err != nil {
+			break
 		}
 	}
+	// }
 	ctl <- true
 }
 
