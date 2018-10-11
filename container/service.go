@@ -92,7 +92,7 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 
 // getConfig returns all the need config with given parameters
 // TODO: mount according to language
-func getConfig(cont *Container, comm *cmdcreator.Command, tty bool) (ctx context.Context, config *container.Config,
+func getConfig(cont *Container, tty bool) (ctx context.Context, config *container.Config,
 	hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig,
 	attachOptions types.ContainerAttachOptions, startOptions types.ContainerStartOptions) {
 	ctx = context.Background()
@@ -105,15 +105,19 @@ func getConfig(cont *Container, comm *cmdcreator.Command, tty bool) (ctx context
 		AttachStderr: true,
 		Tty:          tty,
 		OpenStdin:    true,
-		Env:          cont.context.Environment,
+		Env:          []string{},
 		Cmd:          cmd,
 		Image:        image,
 		WorkingDir:   getPWD(cont),
 		// Entrypoint:   cont.command.Entrypoint,
 	}
-	if comm != nil {
+	if cont.command != nil {
+		config.Env = cont.command.ENV
+	}
+	// fmt.Println(config.Env)
+	if cont.command != nil {
 		ep := nat.PortSet{}
-		for _, v := range comm.Ports {
+		for _, v := range cont.command.Ports {
 			p, err := nat.NewPort("tcp", strconv.Itoa(v))
 			if err != nil {
 				fmt.Println(err)
