@@ -52,6 +52,7 @@ func writeToConnection(container *Container, hjconn types.HijackedResponse, ctl 
 	for {
 		p, err := hjconn.Reader.ReadByte()
 		if err != nil {
+			fmt.Println(err)
 			break
 		}
 		body.Msg = string(p)
@@ -71,13 +72,15 @@ func readFromClient(dConn net.Conn, cConn *websocket.Conn, ctl chan<- bool) {
 	// Read message from client and write to process
 	for {
 		msg := &cmdcreator.Command{}
+		// _, p, err := cConn.ReadMessage()
 		err := cConn.ReadJSON(msg)
+		// fmt.Print(msg)
 		// If client close connection, kill the process
 		if err != nil {
+			fmt.Println(err)
 			ctl <- true
 			return
 		}
-		// fmt.Print(string(msg))
 		_, err = dConn.Write([]byte(msg.Command))
 		// If message can not be written to the process, kill it
 		if err != nil {
