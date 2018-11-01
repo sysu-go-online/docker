@@ -146,7 +146,7 @@ func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
 func WriteToContainer(wsconn *websocket.Conn, conconn net.Conn) {
 	for {
 		msg := minetypes.ConnectContainerRequest{}
-		err := wsconn.ReadJSON(msg)
+		err := wsconn.ReadJSON(&msg)
 		if err != nil {
 			log.Println(err)
 			wsconn.Close()
