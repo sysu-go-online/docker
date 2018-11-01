@@ -6,12 +6,14 @@ package server
 //********************************************
 
 import (
-	"fmt"
+	"encoding/json"
+	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/sysu-go-online/docker_end/cmdcreator"
 	"github.com/sysu-go-online/docker_end/container"
+	"github.com/sysu-go-online/docker_end/types"
 	"github.com/unrolled/render"
 )
 
@@ -31,35 +33,65 @@ func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 		}
 		defer conn.Close()
 
-		// 反json化
-		command := &cmdcreator.Command{}
-		conn.ReadJSON(command)
+		msg := types.ConnectContainerRequest{}
+		conn.ReadJSON(&msg)
 
-		// 新建容器
-		con := container.NewContainer(conn, command)
-		err = container.ConnectNetwork(con)
+		err = container.StartContainer(msg.ID)
+		defer container.StopContainer(msg.ID)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
+			conn.Close()
+			return
 		}
-		container.StartContainer(con)
+
+		hijack, err := container.GetHijackRes(msg.ID)
+		if err != nil {
+			log.Println(err)
+			conn.Close()
+			return
+		}
+
+		go container.WriteToUserConn(conn, hijack.Reader)
+		_, err = hijack.Conn.Write([]byte(msg.Msg))
+		if err != nil {
+			log.Println(err)
+			conn.Close()
+			return
+		}
+		container.WriteToContainer(conn, hijack.Conn)
 	}
 }
 
-// HandleDebugConnection handle debug message from api server
-func HandleDebugConnection(formatter *render.Render) http.HandlerFunc {
+// ContainerCreateHandler create new container and return its id
+func ContainerCreateHandler(formatter *render.Render) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Upgrade(w, r, nil, SocketReadBufferSize, SocketWriteBufferSize)
+		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			w.WriteHeader(400)
+			return
 		}
-		defer conn.Close()
-
-		// 反json化
-		command := &cmdcreator.Command{}
-		conn.ReadJSON(command)
-
-		// 新建debug容器
-		con := container.NewContainer(conn, command)
-		container.StartContainer(con)
+		msg := types.CreateContainerRequest{}
+		err = json.Unmarshal(body, &msg)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(400)
+			return
+		}
+		ID := container.NewContainer(&msg)
+		res := types.CreateContainerResponse{}
+		if ID == "" {
+			res.OK = false
+		} else {
+			res.OK = true
+			res.ID = ID[:12]
+		}
+		b, err := json.Marshal(res)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(500)
+			return
+		}
+		w.Write(b)
 	}
 }

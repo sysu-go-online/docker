@@ -7,20 +7,22 @@ package container
 //********************************************
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"log"
+	"net"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/sysu-go-online/docker_end/cmdcreator"
+
+	minetypes "github.com/sysu-go-online/docker_end/types"
 
 	"github.com/gorilla/websocket"
 )
@@ -64,89 +66,99 @@ func init() {
 // prepare container environment
 // read user information from command
 // set in-container environment from user-defined file
-func NewContainer(conn *websocket.Conn, command *cmdcreator.Command) *Container {
-	container := Container{
-		conn:    conn,
-		command: command,
-	}
-	// fmt.Println(command)
-
-	// **********Read information from user***********
-	userProjectConfPath := filepath.Join("/home", command.UserName, command.ProjectName, "go-online.yml")
-	userProjectConf := UserConf{}
-	if _, err := os.Stat(userProjectConfPath); os.IsExist(err) {
-		userProjectConfData, err := ioutil.ReadFile(userProjectConfPath)
-		if err != nil {
-			fmt.Println(err)
-		}
-		if err = yaml.Unmarshal(userProjectConfData, &userProjectConf); err != nil {
-			fmt.Println(err)
-		}
-	}
-	userProjectConf.SetDefault(&container)
-	container.context = &userProjectConf
+func NewContainer(msg *minetypes.CreateContainerRequest) string {
 	tty = true
-	// ***********************************************
-
-	/*
-		// **********get type and decide image************
-		var imagename string
-		switch command.Type {
-		case "tty":
-			imagename = "golang"
-			tty = true
-		case "debug":
-			imagename = "txzdream/go-online-debug_service:dev"
-			tty = false
+	ctx := context.Background()
+	config := &container.Config{
+		User:         "root",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          true,
+		OpenStdin:    true,
+		Env:          []string{},
+		Cmd:          []string{"bash"},
+		Image:        msg.Image,
+		WorkingDir:   msg.PWD,
+	}
+	config.Env = append(config.Env, msg.ENV...)
+	hostConfig := &container.HostConfig{
+		Binds:       []string{},
+		AutoRemove:  true,
+		DNS:         []string{"8.8.8.8"},
+		CapAdd:      []string{"SYS_PTRACE"},
+		SecurityOpt: []string{"seccomp=unconfined"},
+	}
+	for i := range msg.MNT {
+		tmp := mount.Mount{
+			Type:   mount.TypeBind,
+			Source: msg.MNT[i],
+			Target: msg.Target[i],
 		}
-		// ***********************************************
-	*/
+		hostConfig.Mounts = append(hostConfig.Mounts, tmp)
+	}
+	networkingConfig := &network.NetworkingConfig{}
 
-	// Get config
-	ctx, config, hostConfig, netwrokingConfig, _, _ := getConfig(&container, tty)
+	ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, networkingConfig, "")
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+	return ret.ID
+}
 
-	/*
-		// find image
-		// TODO: match image tag
-		images, err := DockerClient.ImageList(ctx, types.ImageListOptions{})
-		if err != nil {
-			panic(err)
-		}
-		find := false
-		for _, image := range images {
-			if len(image.RepoTags) > 0 && strings.Split(image.RepoTags[0], ":")[0] == strings.Split(imagename, ":")[0] {
-				find = true
-				break
-			}
-		}
+// StartContainer start container
+func StartContainer(id string) error {
+	return DockerClient.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
+}
 
-		// if not find, pull image
-		if !find {
-			fmt.Println("Cant not find such image, trying to pull it")
-			_, err := DockerClient.ImagePull(ctx, imagename, types.ImagePullOptions{})
-			if err != nil {
-				panic(err)
-			}
-		}
-	*/
+// GetHijackRes get attach response
+func GetHijackRes(id string) (*types.HijackedResponse, error) {
+	r, err := DockerClient.ContainerAttach(context.Background(), id, types.ContainerAttachOptions{
+		Stream: true,
+		Stderr: true,
+		Stdin:  true,
+		Stdout: true,
+	})
+	return &r, err
+}
 
-	// Create container, if image is not pull, wait 10s once until the image pull
-	// ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
-	s3, _ := time.ParseDuration("3s")
+// WriteToUserConn attach to the container
+func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
 	for {
-		ret, err := DockerClient.ContainerCreate(ctx, config, hostConfig, netwrokingConfig, "")
-		if err != nil && strings.Contains(err.Error(), "No such image") {
-			time.Sleep(s3)
-			continue
-		} else if err != nil {
-			panic(err)
-		} else {
-			container.ID = ret.ID
-			break
+		data, err := reader.ReadByte()
+		if err != nil && err.Error() != "EOF" {
+			log.Println(err)
+			conn.Close()
+			return
+		}
+		res := minetypes.ConnectContainerResponse{true, string(data)}
+		err = conn.WriteJSON(res)
+		if err != nil {
+			log.Println(err)
+			conn.Close()
+			return
 		}
 	}
+}
 
-	return &container
+// WriteToContainer write data to container
+func WriteToContainer(wsconn *websocket.Conn, conconn net.Conn) {
+	for {
+		msg := minetypes.ConnectContainerRequest{}
+		err := wsconn.ReadJSON(msg)
+		if err != nil {
+			log.Println(err)
+			wsconn.Close()
+			return
+		}
+		_, err = conconn.Write([]byte(msg.Msg))
+		if err != nil {
+			log.Println(err)
+			wsconn.Close()
+			return
+		}
+	}
 }
 
 // ConnectNetwork connect a container to network given in env
@@ -173,46 +185,13 @@ func ConnectNetwork(cont *Container) error {
 	return DockerClient.NetworkConnect(context.Background(), CONTAINERNETWORKID, cont.ID, &network.EndpointSettings{})
 }
 
-// StartContainer attach and start a container
-func StartContainer(container *Container) {
-	defer StopContainer(container.ID)
-	// Attach container
-	ctx, _, _, _, attachOptions, startOptions := getConfig(container, false)
-	hjconn, err := DockerClient.ContainerAttach(ctx, container.ID, attachOptions)
-	defer hjconn.Close()
-	if err != nil {
-		panic(err)
-	}
-	// send container message to api service
-	type ret struct {
-		Msg  string `json:"msg"`
-		ID   string `json:"id"`
-		Type string `json:"type"`
-	}
-	body := ret{}
-	body.ID = container.ID
-	body.Type = "tty"
-	container.conn.WriteJSON(body)
-
-	readCtl := make(chan bool, 2)
-	// Read message from client and send it to docker
-	go readFromClient(hjconn.Conn, container.conn, readCtl)
-	// Read message from docker and send it to client
-	go writeToConnection(container, hjconn, readCtl)
-	// Start container
-	err = DockerClient.ContainerStart(ctx, container.ID, startOptions)
-	if err != nil {
-		fmt.Println(err)
-	}
-	<-readCtl
-}
-
 // StopContainer stop container after the connection stops
 func StopContainer(id string) {
-	duration := time.Duration(time.Second * 2)
-	err := DockerClient.ContainerStop(context.Background(), id, &duration)
+	err := DockerClient.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{
+		Force: true,
+	})
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 

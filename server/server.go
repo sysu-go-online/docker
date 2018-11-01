@@ -25,6 +25,5 @@ func NewServer() *martini.ClassicMartini {
 // 初始化路由
 func initRoutes(m *martini.ClassicMartini, formatter *render.Render) {
 	m.Get("/tty", HandleTTYConnection(formatter))
-	m.Get("/debug", HandleDebugConnection(formatter))
-	// m.Get("/test", TestFunciton(formatter))
+	m.Post("/tty", ContainerCreateHandler(formatter))
 }
