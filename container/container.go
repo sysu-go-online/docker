@@ -112,6 +112,14 @@ func StartContainer(id string) error {
 	return DockerClient.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
 }
 
+// ResizeContainer resize container
+func ResizeContainer(id string, width int, height int) error {
+	return DockerClient.ContainerResize(context.Background(), id, types.ResizeOptions{
+		Height: uint(height),
+		Width:  uint(width),
+	})
+}
+
 // GetHijackRes get attach response
 func GetHijackRes(id string) (*types.HijackedResponse, error) {
 	r, err := DockerClient.ContainerAttach(context.Background(), id, types.ContainerAttachOptions{

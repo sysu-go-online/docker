@@ -26,4 +26,5 @@ func NewServer() *martini.ClassicMartini {
 func initRoutes(m *martini.ClassicMartini, formatter *render.Render) {
 	m.Get("/tty", HandleTTYConnection(formatter))
 	m.Post("/create", ContainerCreateHandler(formatter))
+	m.Post("/resize", ContainerResizeHandler(formatter))
 }

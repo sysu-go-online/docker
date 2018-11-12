@@ -95,3 +95,37 @@ func ContainerCreateHandler(formatter *render.Render) http.HandlerFunc {
 		w.Write(b)
 	}
 }
+
+// ContainerResizeHandler is handler for resize container
+func ContainerResizeHandler(formatter *render.Render) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(400)
+			return
+		}
+		msg := types.ResizeContainerRequest{}
+		err = json.Unmarshal(body, &msg)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(400)
+			return
+		}
+		err = container.ResizeContainer(msg.ID, msg.Width, msg.Height)
+		res := types.ResizeContainerResponse{}
+		if err != nil {
+			res.OK = false
+			res.Msg = err.Error()
+		} else {
+			res.OK = true
+		}
+		b, err := json.Marshal(res)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(500)
+			return
+		}
+		w.Write(b)
+	}
+}
