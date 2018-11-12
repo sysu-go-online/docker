@@ -136,7 +136,7 @@ func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
 	for {
 		data := make([]byte, 6)
 		n, err := reader.Read(data)
-		if err != nil && err.Error() != "EOF" {
+		if err != nil {
 			log.Println(err)
 			conn.Close()
 			return
