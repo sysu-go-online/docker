@@ -134,7 +134,7 @@ func GetHijackRes(id string) (*types.HijackedResponse, error) {
 // WriteToUserConn attach to the container
 func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
 	for {
-		data := make([]byte, 60)
+		data := make([]byte, 6)
 		n, err := reader.Read(data)
 		if err != nil && err.Error() != "EOF" {
 			log.Println(err)
