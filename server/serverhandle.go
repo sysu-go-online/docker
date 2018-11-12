@@ -44,6 +44,9 @@ func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 			return
 		}
 
+		// close event notify
+		isClientClosed := false
+
 		hijack, err := container.GetHijackRes(msg.ID)
 		if err != nil {
 			log.Println(err)
@@ -51,14 +54,14 @@ func HandleTTYConnection(formatter *render.Render) http.HandlerFunc {
 			return
 		}
 
-		go container.WriteToUserConn(conn, hijack.Reader)
+		go container.WriteToUserConn(conn, hijack.Reader, &isClientClosed)
 		_, err = hijack.Conn.Write([]byte(msg.Msg))
 		if err != nil {
 			log.Println(err)
 			conn.Close()
 			return
 		}
-		container.WriteToContainer(conn, hijack.Conn)
+		container.WriteToContainer(conn, hijack.Conn, &isClientClosed)
 	}
 }
 

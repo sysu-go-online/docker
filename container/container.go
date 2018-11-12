@@ -132,13 +132,17 @@ func GetHijackRes(id string) (*types.HijackedResponse, error) {
 }
 
 // WriteToUserConn attach to the container
-func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
+func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader, judge *bool) {
 	for {
+		if *judge {
+			return
+		}
 		data := make([]byte, 6)
 		n, err := reader.Read(data)
 		if err != nil {
 			log.Println(err)
 			conn.Close()
+			*judge = true
 			return
 		}
 		if n == 0 {
@@ -150,25 +154,31 @@ func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader) {
 		if err != nil {
 			log.Println(err)
 			conn.Close()
+			*judge = true
 			return
 		}
 	}
 }
 
 // WriteToContainer write data to container
-func WriteToContainer(wsconn *websocket.Conn, conconn net.Conn) {
+func WriteToContainer(wsconn *websocket.Conn, conconn net.Conn, judge *bool) {
 	for {
+		if *judge {
+			return
+		}
 		msg := minetypes.ConnectContainerRequest{}
 		err := wsconn.ReadJSON(&msg)
 		if err != nil {
 			log.Println(err)
 			wsconn.Close()
+			*judge = true
 			return
 		}
 		_, err = conconn.Write([]byte(msg.Msg))
 		if err != nil {
 			log.Println(err)
 			wsconn.Close()
+			*judge = true
 			return
 		}
 	}
