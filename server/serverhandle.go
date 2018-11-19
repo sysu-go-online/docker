@@ -118,6 +118,7 @@ func ContainerResizeHandler(formatter *render.Render) http.HandlerFunc {
 		err = container.ResizeContainer(msg.ID, msg.Width, msg.Height)
 		res := types.ResizeContainerResponse{}
 		if err != nil {
+			log.Println(err)
 			res.OK = false
 			res.Msg = err.Error()
 		} else {

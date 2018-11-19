@@ -114,6 +114,10 @@ func StartContainer(id string) error {
 
 // ResizeContainer resize container
 func ResizeContainer(id string, width int, height int) error {
+	err := StartContainer(id)
+	if err != nil {
+		return err
+	}
 	return DockerClient.ContainerResize(context.Background(), id, types.ResizeOptions{
 		Height: uint(height),
 		Width:  uint(width),
