@@ -76,7 +76,7 @@ func NewContainer(msg *minetypes.CreateContainerRequest) string {
 		Tty:          true,
 		OpenStdin:    true,
 		Env:          []string{},
-		Cmd:          []string{"bash"},
+		Cmd:          []string{"zsh"},
 		Image:        msg.Image,
 		WorkingDir:   msg.PWD,
 	}
