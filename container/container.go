@@ -70,7 +70,6 @@ func NewContainer(msg *minetypes.CreateContainerRequest) string {
 	tty = true
 	ctx := context.Background()
 	config := &container.Config{
-		User:         "root",
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
