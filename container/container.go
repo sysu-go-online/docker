@@ -187,7 +187,7 @@ func WriteToContainer(wsconn *websocket.Conn, conconn net.Conn, judge *bool) {
 	}
 }
 
-// ConnectNetwork connect a container to network given in env
+// ConnectNetwork connect a container to network
 func ConnectNetwork(cont *Container) error {
 	list, err := DockerClient.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {

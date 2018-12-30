@@ -37,4 +37,7 @@ type ResizeContainerRequest struct {
 }
 
 // ResizeContainerResponse is response for resize container
-type ResizeContainerResponse ConnectContainerResponse
+type ResizeContainerResponse struct {
+	OK  bool   `json:"ok"`
+	Msg string `json:"msg"`
+}
