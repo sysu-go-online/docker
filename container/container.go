@@ -140,7 +140,7 @@ func WriteToUserConn(conn *websocket.Conn, reader *bufio.Reader, judge *bool) {
 		if *judge {
 			return
 		}
-		data := make([]byte, 6)
+		data := make([]byte, 48)
 		n, err := reader.Read(data)
 		if err != nil {
 			log.Println(err)
